@@ -67,9 +67,12 @@ fun App() {
 
                               println("CardExample: Card Click ${it.testName}")
 
-                              var clazz = Class.forName(testPackage+"."+it.testClass);
-
+                              val clazz = Class.forName(testPackage+"."+it.testClass);
                               val result = JUnitCore.runClasses(clazz)
+                              println(result.failureCount)
+                              result.failures.forEach{
+                                println(it.message)
+                              }
 
                              },
                       ) {
