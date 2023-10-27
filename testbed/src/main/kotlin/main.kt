@@ -30,10 +30,12 @@ import com.android.certifications.test.FCS_CKH_EXT1
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.interactor.StartAdbInteractor
 import com.malinskiy.adam.request.device.ListDevicesRequest
+import com.malinskiy.adam.request.misc.GetAdbServerVersionRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.JUnitCore
+import java.net.ConnectException
 
 
 data class TestCase(
@@ -49,6 +51,24 @@ val testCases = listOf(
     TestCase("FTP_ITC_EXT1","FTP_ITC_EXT1"),
 )
 
+
+suspend fun testAdb():Int{
+    val adb = AndroidDebugBridgeClientFactory().build();
+    try {
+        adb.execute(GetAdbServerVersionRequest())
+        val lists = adb.execute(request = ListDevicesRequest())
+        return lists.size;
+    } catch (e: ConnectException) {
+        val success = StartAdbInteractor().execute()
+        if (!success) {
+            println("Unable to start adb");
+            return 0;
+        } else {
+            val lists = adb.execute(request = ListDevicesRequest())
+            return lists.size;
+        }
+    }
+}
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 @Preview
@@ -56,28 +76,31 @@ fun App() {
     val model = remember { RootStore() }
     val items_ = (1..30).map { "Item $it" }
     MaterialTheme {
-
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.background(Color(0xFFEEEEEE))) {
-
                 LazyColumn {
                   items(testCases){
                       Card(modifier = Modifier.padding(1.dp).height(70.dp).fillMaxWidth(fraction=0.8f).padding(4.dp)
                               ,onClick = {
-
+                            runBlocking {
                               println("CardExample: Card Click ${it.testName}")
-
                               var clazz = Class.forName(testPackage+"."+it.testClass);
-
-                              val result = JUnitCore.runClasses(clazz)
-
+                              val numDevice = testAdb()
+                              if(numDevice==1) {
+                                  val result = JUnitCore.runClasses(clazz)
+                              } else if(numDevice>1){
+                                  println("too much devices are connected")
+                              } else {
+                                  println("adb connection not found")
+                              }
+                            }
                              },
                       ) {
                           Column (modifier = Modifier.padding(1.dp)){
                               Text(text = it.testName,
                                   fontSize = 20.sp,
                                   modifier = Modifier.padding(start = 20.dp))
-                              
+
                               LinearProgressIndicator(color = Color.Green)
 //                                  modifier = Modifier.padding(2.dp)){
 //
