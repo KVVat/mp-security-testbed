@@ -79,9 +79,6 @@ fun App() {
                                   modifier = Modifier.padding(start = 20.dp))
                               
                               LinearProgressIndicator(color = Color.Green)
-//                                  modifier = Modifier.padding(2.dp)){
-//
-//                              }
                           }
                       }
                   }
