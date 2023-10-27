@@ -2,7 +2,6 @@ package com.android.certifications.test
 
 import com.android.certifications.test.rule.AdbDeviceRule
 import com.malinskiy.adam.AndroidDebugBridgeClient
-import com.malinskiy.adam.interactor.AdbBinaryInteractor
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -24,8 +23,6 @@ class FCS_ACF_EXT {
     fun setUp()
     {
         runBlocking {
-
-
 
         }
     }
