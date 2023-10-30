@@ -52,18 +52,19 @@ class AdamUtils {
       return ret
     }
 
-    /*
-    fun waitLogcatLine(waitTime:Int,tagWait:String,adb: AdbDeviceRule):LogcatResult? {
+
+    fun waitLogcatLineByTag(waitTime:Int,tagSearch:String,adb: AdbDeviceRule):LogcatResult? {
       var found = false
       var text = ""
       var tag = ""
+      var client = adb.adb;
       runBlocking {
-
-        val deviceTimezoneString = adb.adb.execute(GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
+        val deviceTimezoneString = client.execute(GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
         val deviceTimezone = TimeZone.getTimeZone(deviceTimezoneString)
         val nowInstant = Instant.now()
+        //Prepare Channeled Logcat Request
         val request = ChanneledLogcatRequest(LogcatSinceFormat.DateString(nowInstant, deviceTimezoneString), modes = listOf())
-        val channel = adb.adb.execute(request, this, adb.deviceSerial)
+        val channel = client.execute(request, this, adb.deviceSerial)
 
         // Receive logcat for max several seconds, wait and find certain tag text
         for (i in 1..waitTime) {
@@ -71,13 +72,13 @@ class AdamUtils {
             .split("\n")
             .mapNotNull { LogLine.of(it, deviceTimezone) }
             .filterIsInstance<LogLine.Log>()
-            .filter { it.level == 'D'}
+            //.filter { it.level == 'D'}
             .filter {
-              it.tag.equals(tagWait)
+              it.tag.equals(tagSearch)
             }
 
           if(lines.isNotEmpty()){
-            println("matched logcat line found:"+lines.size)
+            println("matched logcat line found ${lines.size}")
             tag = lines.get(0).tag
             text = lines.get(0).text
             found = true
@@ -93,7 +94,7 @@ class AdamUtils {
         null
       }
     }
-*/
+
 
     fun pullfile(sourcePath:String, dest:String, adb: AdbDeviceRule, copytoFile:Boolean=false){
       runBlocking {

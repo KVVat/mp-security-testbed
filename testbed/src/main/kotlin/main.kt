@@ -44,19 +44,18 @@ data class TestCase(
 val testPackage = "com.android.certifications.test"
 val testCases = listOf(
     TestCase("FCS_ACF_EXT","FCS_ACF_EXT"),
-    TestCase("FCS_CKH_EXT1","FCS_CKH_EXT1"),
     TestCase("FPR_PSE1","FPR_PSE1"),
-    TestCase("FTP_ITC_EXT1","FTP_ITC_EXT1"),
-)
+    TestCase("FDP_ACC1","FDP_ACC1"),
+    //TestCase("FCS_CKH_EXT1","FCS_CKH_EXT1"),
+    )
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 @Preview
 fun App() {
     val model = remember { RootStore() }
-    val items_ = (1..30).map { "Item $it" }
+    //val items_ = (1..30).map { "Item $it" }
     MaterialTheme {
-
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.background(Color(0xFFEEEEEE))) {
 
@@ -78,7 +77,7 @@ fun App() {
                                   fontSize = 20.sp,
                                   modifier = Modifier.padding(start = 20.dp))
                               
-                              LinearProgressIndicator(color = Color.Green)
+                              //LinearProgressIndicator(color = Color.Green)
                           }
                       }
                   }
@@ -114,7 +113,6 @@ fun main() = application {
                     "Adb Doctor",
                     onClick = {
                         runBlocking {
-                            println("Echo!")
                             runBlocking {
                                 //Verify the ADB server is running
                                 val found = StartAdbInteractor().execute()
@@ -124,7 +122,6 @@ fun main() = application {
                                         coroutineContext = Dispatchers.IO
                                     }.build()
                                     //Execute requests using suspendable execute() methods. First list available devices
-
                                     val devices = adb.execute(request = ListDevicesRequest())
                                     try {
                                         val serial = devices.first().serial

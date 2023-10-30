@@ -86,7 +86,6 @@ class FCS_ACF_EXT {
             )
 
             //unistall the test file before next test
-
             client.execute(UninstallRemotePackageRequest("com.example.appupdate"), adb.deviceSerial)
         }
     }
