@@ -6,10 +6,12 @@ import com.android.certifications.test.utils.LogcatResult
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
 import com.malinskiy.adam.AndroidDebugBridgeClient
+import com.malinskiy.adam.request.misc.KillAdbRequest
 import com.malinskiy.adam.request.misc.RebootRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import logging
 import org.hamcrest.MatcherAssert
 import org.hamcrest.core.IsEqual
 import org.hamcrest.core.StringStartsWith
@@ -76,7 +78,7 @@ class FCS_CKH_EXT1 {
         runBlocking {
             //install file
             val file_apk =
-                File(Paths.get("src", "test", "resources", TEST_MODULE).toUri())
+                File(Paths.get("src", "main", "resources","FCS_CKH_EXT1", TEST_MODULE).toUri())
 
             val ret = AdamUtils.InstallApk(file_apk, false, adb)
             Assert.assertTrue(ret.startsWith("Success"))
@@ -107,19 +109,19 @@ class FCS_CKH_EXT1 {
                 matched, IsEqual(true)
             );
 
-            Thread.sleep(1000 * 5)
-
             //(Require)Reboot Device
             //1. We expect the bootloader of the device is unlocked.
             //2. Users need to relaunch the device quickly
             client.execute(request = RebootRequest(), serial = adb.deviceSerial)
-            println("> ** Rebooting : Please Reboot Device **")
-            Thread.sleep(1000 * 10)
+            logging("> ** Rebooting : Please Reboot Device **")
             //Note:  the connection to the adb server will be dismissed during the rebooting
-            println("> ** Maybe it requires manual operation : Please Reboot the target device as fast as possible **")
+            logging("> ** Maybe it requires manual operation : Please Reboot the target device as fast as possible **")
             adb.waitBoot()
-            Thread.sleep(1000 * 5)
-            println("> ** Reconnected")
+            client.execute(request = KillAdbRequest())
+            //client.execute(request = StartAdbRequest())
+
+            Thread.sleep(1000*15)
+            logging("> ** Reconnected")
             result = AdamUtils.waitLogcatLineByTag(200, "FCS_CKH_EXT_TEST", adb)
             if (result.isEmpty()) {
                 result = listOf(LogcatResult("", "<null>"))

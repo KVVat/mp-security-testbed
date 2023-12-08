@@ -1,6 +1,7 @@
 package com.android.certifications.test.rule
 
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
+import com.malinskiy.adam.exception.RequestRejectedException
 import com.malinskiy.adam.interactor.StartAdbInteractor
 import com.malinskiy.adam.request.Feature
 import com.malinskiy.adam.request.device.Device
@@ -13,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import logging
 import org.junit.Assume
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -56,13 +58,35 @@ class AdbDeviceRule(val deviceType: DeviceType = DeviceType.ANY, vararg val requ
     }
     suspend fun waitBoot(){
         runBlocking {
-            loop@ for (device in adb.execute(ListDevicesRequest())) {
-                val booted =
-                    adb.execute(GetSinglePropRequest("sys.boot_completed"), device.serial).isNotBlank()
-                if (!booted) continue
+
+                loop@ for (device in adb.execute(ListDevicesRequest())) {
+                    try {
+                    val booted =
+                        adb.execute(GetSinglePropRequest("sys.boot_completed"), device.serial)
+                            .isNotBlank()
+                    if (!booted) continue
+
+                    supportedFeatures = adb.execute(FetchDeviceFeaturesRequest(device.serial))
+                    if (requiredFeatures.isNotEmpty()) {
+                        Assume.assumeTrue(
+                            "No compatible device found for features $requiredFeatures",
+                            supportedFeatures.containsAll(requiredFeatures.asList())
+                        )
+                    } else {
+                        continue
+                    }
+
+                    } catch (e: ConnectException) {
+                        logging("connecting ... ")
+                        continue
+                    } catch (e: RequestRejectedException) {
+                        logging("rejecting ... ")
+                        continue
+                    }
+                }
             }
         }
-    }
+
     private suspend fun CoroutineScope.waitForDevice(): Device {
         while (isActive) {
             try {

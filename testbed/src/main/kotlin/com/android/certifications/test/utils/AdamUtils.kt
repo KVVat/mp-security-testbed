@@ -8,6 +8,7 @@ import com.malinskiy.adam.request.adbd.RootAdbdMode
 import com.malinskiy.adam.request.logcat.ChanneledLogcatRequest
 import com.malinskiy.adam.request.logcat.LogcatSinceFormat
 import com.malinskiy.adam.request.misc.FetchHostFeaturesRequest
+import com.malinskiy.adam.request.misc.KillAdbRequest
 import com.malinskiy.adam.request.pkg.InstallRemotePackageRequest
 import com.malinskiy.adam.request.prop.GetSinglePropRequest
 import com.malinskiy.adam.request.shell.v2.ShellCommandRequest
@@ -55,18 +56,20 @@ class AdamUtils {
     }
     fun waitLogcatLineByTag(waitTime:Int,tagSearch:String,adb: AdbDeviceRule):List<LogcatResult> {
       var found = false
-      var text = ""
-      var tag = ""
       var client = adb.adb;
+
+      var deviceSerial = adb.deviceSerial
       val returnList:MutableList<LogcatResult>
               = mutableListOf()
+
       runBlocking {
-        val deviceTimezoneString = client.execute(GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
+        val deviceTimezoneString = client.execute(GetSinglePropRequest("persist.sys.timezone"), deviceSerial).trim()
+
         val deviceTimezone = TimeZone.getTimeZone(deviceTimezoneString)
         val nowInstant = Instant.now()
         //Prepare Channeled Logcat Request
         val request = ChanneledLogcatRequest(LogcatSinceFormat.DateString(nowInstant, deviceTimezoneString), modes = listOf())
-        val channel = client.execute(request, this, adb.deviceSerial)
+        val channel = client.execute(request, this, deviceSerial)
 
         // Receive logcat for max several seconds, wait and find certain tag text
 
@@ -81,7 +84,7 @@ class AdamUtils {
             }
 
           if(lines.isNotEmpty()){
-            logging("batch $i");
+            //logging("batch $i");
             lines.forEach(){
               //nowInstant.epochSecond
               val epochSecond2 = it.date.time.time/1000
@@ -91,13 +94,6 @@ class AdamUtils {
               returnList.add(LogcatResult(it.tag,it.text))
               found = true
             }
-            //println("matched logcat line found ${lines.size}")
-            //tag = lines.get(0).tag
-            //text = lines.get(0).text
-
-            //logging(text)
-
-
           }
           delay(100)
         }
