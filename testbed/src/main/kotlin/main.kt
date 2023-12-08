@@ -1,5 +1,6 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.skia.impl.Stats.enabled
 import org.junit.runner.JUnitCore
 import kotlin.math.log
 
@@ -119,24 +122,29 @@ fun App() {
 
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
+    var isTestRunning by remember { mutableStateOf(false) }
 
     logger = remember { Logger(flowLogger,coroutineScope,loggerText) }
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.background(Color(0xFFEEEEEE))) {
-                LazyColumn(modifier = Modifier.fillMaxWidth(fraction = 0.3f)) {
+                LazyColumn(modifier = Modifier.fillMaxWidth(fraction = 0.3f), ) {
                     items(testCases) {
-                        Card(
+                        Card(enabled = !isTestRunning,
+                            backgroundColor = if(isTestRunning) Color.LightGray else Color.White,
                             modifier = Modifier.padding(1.dp).height(120.dp).fillParentMaxWidth()
                                 .padding(4.dp),
                             onClick = {
+                                isTestRunning = true;
                                 logger.clear()
                                 logging("[[${it.title}]]")
 
                                 val clazz = Class.forName(testPackage + "." + it.testClass)
                                 val runner = JUnitTestRunner(arrayOf(clazz),
-                                    UnitTestingTextListener(::logging))
+                                    UnitTestingTextListener(::logging) {
+                                        isTestRunning = false;
+                                    })
 
                                 runner.start()
                             },

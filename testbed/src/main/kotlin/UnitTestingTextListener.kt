@@ -2,7 +2,7 @@ import org.junit.runner.Description
 import org.junit.runner.Result
 import org.junit.runner.notification.Failure
 import org.junit.runner.notification.RunListener
-class UnitTestingTextListener(cbPrint:(line:String)->Unit) : RunListener() {
+class UnitTestingTextListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit) : RunListener() {
     private var numTests = 0
     private var numFailures = 0
     private val numUnexpected = 0 // Never changes, but required in output.
@@ -10,6 +10,7 @@ class UnitTestingTextListener(cbPrint:(line:String)->Unit) : RunListener() {
     private var testStartTime = 0.0
 
     private val print_=cbPrint;
+    private val finishHandler = finishHandler
 
     private fun printf(format: String, vararg args: Any) {
         // Avoid using printf() or println() because they will be flushed in pieces and cause
@@ -22,6 +23,7 @@ class UnitTestingTextListener(cbPrint:(line:String)->Unit) : RunListener() {
             "Executed %d tests, with %d failures (%d unexpected)", numTests, numFailures,
             numUnexpected
         )
+        finishHandler()
     }
 
     @Throws(java.lang.Exception::class)
