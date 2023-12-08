@@ -2,12 +2,14 @@ package com.android.certifications.test
 
 import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
+import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.pkg.UninstallRemotePackageRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandResult
 import kotlinx.coroutines.runBlocking
+import logging
 import org.hamcrest.CoreMatchers
 import org.hamcrest.core.IsEqual
 import org.junit.After
@@ -26,6 +28,11 @@ import java.nio.file.Paths
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 
+@SFR("FPR_PSE.1 Pseudonymity", """
+ Pseudonymity requires that a set of users and/or subjects are
+ unable to determine the identity of a user bound to a subject or operation, but
+ that this user is still responsible for its actions.
+  """)
 class FPR_PSE1 {
     @Rule
     @JvmField
@@ -67,7 +74,7 @@ class FPR_PSE1 {
     {
         runBlocking {
 
-            println("> The test verifies that the apis which generate unique ids return expected values.")
+            logging("> The test verifies that the apis which generate unique ids return expected values.")
             AdamUtils.InstallApk(file_module, true,adb)
 
             Thread.sleep(SHORT_TIMEOUT*2)
@@ -75,7 +82,7 @@ class FPR_PSE1 {
             var response :ShellCommandResult
 
             response= client.execute(ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.MainActivity"), adb.deviceSerial)
-            println("Call activity results : ${response.output}")
+            logging("Call activity results : ${response.output}")
             Thread.sleep(LONG_TIMEOUT)
             response =
                 client.execute(ShellCommandRequest("run-as ${TEST_PACKAGE} cat /data/data/$TEST_PACKAGE/shared_prefs/UniqueID.xml"), adb.deviceSerial)
@@ -83,7 +90,7 @@ class FPR_PSE1 {
             //the map contains unique ids below : ADID,UUID,AID,WIDEVINE (see application code)
             val dictA:Map<String,String> = fromPrefMapListToDictionary(response.output.trimIndent())
             //
-            println("Values of each api results : "+dictA.toString())
+            logging("Values of each api results : "+dictA.toString())
 
             //kill process (am force-stop com.package.name)
             client.execute(ShellCommandRequest("am force-stop $TEST_PACKAGE"), adb.deviceSerial)
@@ -98,12 +105,12 @@ class FPR_PSE1 {
             Thread.sleep(SHORT_TIMEOUT*5)
 
             val dictB:Map<String,String> = fromPrefMapListToDictionary(response.output.trimIndent())
-            println("Values of each api results (after reboot) : "+dictB.toString())
-            println("Check all api values are maintained.")
+            logging("Values of each api results (after reboot) : "+dictB.toString())
+            logging("Check all api values are maintained.")
 
             //Expected : All unique id values should be maintained
             //Note : Each test should not interrupt execution of the test case
-            println(dictB)
+            logging(dictB.toString())
             errs.checkThat(a.Msg("Verify UUID same"),dictA["UUID"], IsEqual(dictB["UUID"]))
             errs.checkThat(a.Msg("Verify ADID same"),dictA["ADID"], IsEqual(dictB["ADID"]))
             errs.checkThat(a.Msg("Verify AID same"),dictA["AID"], IsEqual(dictB["AID"]))
@@ -114,14 +121,14 @@ class FPR_PSE1 {
             errs.checkThat(a.Msg("Verify IMEI2 is blank"),dictA["IMEI2"], IsEqual(""))
             //errs.checkThat(a.Msg("Verify DeviceSerial is blank"),dictA["DeviceSerial"],IsEqual(""))
 
-            println(">Uninstall/Install again the target apk.")
+            logging(">Uninstall/Install again the target apk.")
             //uninstall application =>
             client.execute(UninstallRemotePackageRequest(TEST_PACKAGE), adb.deviceSerial)
             Thread.sleep(SHORT_TIMEOUT*5)
             //install application again
             AdamUtils.InstallApk(file_module, false,adb)
             Thread.sleep(SHORT_TIMEOUT*5)
-            //println(respstring)
+            //logging(respstring)
             //launch application
             client.execute(ShellCommandRequest("am start -n $TEST_PACKAGE/$TEST_PACKAGE.MainActivity"), adb.deviceSerial)
             Thread.sleep(SHORT_TIMEOUT*10)
@@ -131,7 +138,7 @@ class FPR_PSE1 {
 
             val dictC:Map<String,String> = fromPrefMapListToDictionary(response.output.trimIndent())
 
-            println(">Check the api values except UUID should be maintained.")
+            logging(">Check the api values except UUID should be maintained.")
             //Expected : UUID should be changed. Others should be maintained
             //You should set allowbackup option in module's androidmanifest.xml to false
             //for passing this test.(the option makes application a bit vulnerable to attack)
@@ -152,7 +159,7 @@ class FPR_PSE1 {
     }
 
     fun fromPrefMapListToDictionary(xml:String):Map<String,String>{
-        println(xml)
+        logging(xml)
         val source = InputSource(StringReader(xml))
 
         val dbf: DocumentBuilderFactory = DocumentBuilderFactory.newInstance()

@@ -1,6 +1,8 @@
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import io.grpc.ManagedChannelBuilder
 
 internal class RootStore {
@@ -10,18 +12,18 @@ internal class RootStore {
 
     private fun initialState(): RootState {
         val port = 9008
-        //val host = "localhost"
-        //val channel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
-        //val client = UiAutomuttonClient(channel)
-        return RootState(port);//,channel,client,null, boundRect{top=0;left=0;right=800;bottom=800},dumpText="")
+        val logLines = mutableListOf<String>();
+        val logbuffer = String()
+        return RootState(port,logLines,logbuffer);//,channel,client,null, boundRect{top=0;left=0;right=800;bottom=800},dumpText="")
     }
 
+    fun print(line:String){
+        state.logLines.add(line);
+        println(""+line.length+":"+line)
+    }
     data class RootState(
         val port: Int = 9008,
-        //val channel:ManagedChannel,
-        //val client:UiAutomuttonClient,
-       // var uiRootNode: UiAccessibilityNode?,
-        //var mDisplaySize: BoundRect,
-        //var dumpText:String
+        val logLines:MutableList<String>,
+        var logbuffer:String
     );
 }

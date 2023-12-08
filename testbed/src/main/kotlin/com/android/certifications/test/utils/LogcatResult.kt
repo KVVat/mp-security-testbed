@@ -19,15 +19,17 @@ data class LogcatResult(var tag:String,var text:String)
 sealed class LogLine(val matcher: Matcher) {
     abstract val tag: String
     abstract val text:String
+    abstract val date:Calendar
     class BufferLine(rawText: String) : LogLine(BUFFER_BEGIN_RE.matcher(rawText).also { it.find() }) {
         val bufferBegin = matcher.group(1)
         override val tag="[Blank]"
         override val text = bufferBegin
+        override val date: Calendar = Calendar.getInstance();
         override fun toString() = "[BufferLine] $bufferBegin"
     }
 
     class Log(rawText: String, val timeZone: TimeZone) : LogLine(LOG_LINE_RE.matcher(rawText).also { it.find() }) {
-        val date = Calendar.getInstance(timeZone).apply {
+        override val date = Calendar.getInstance(timeZone).apply {
             set(Calendar.MONTH, matcher.group(3)!!.toInt() - 1)
             set(Calendar.DAY_OF_MONTH, matcher.group(4)!!.toInt())
             set(Calendar.HOUR_OF_DAY, matcher.group(5)!!.toInt())

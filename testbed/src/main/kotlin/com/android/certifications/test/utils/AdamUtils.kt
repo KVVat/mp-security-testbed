@@ -19,11 +19,13 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import logging
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
 import java.util.TimeZone
+import kotlin.math.log
 
 class AdamUtils {
   companion object{
@@ -35,7 +37,7 @@ class AdamUtils {
          serial = adb.deviceSerial)
       }
 
-      println("Restart adb=>$ret")
+      logging("Restart adb=>$ret")
       return ret
     }
     fun shellRequest(shellCommand:String,adb: AdbDeviceRule):ShellCommandResult{
@@ -47,17 +49,17 @@ class AdamUtils {
           ShellCommandRequest(shellCommand),
           adb.deviceSerial)
       }
-      println("Run shell command(${ret.exitCode}):$shellCommand")
+      logging("Run shell command(${ret.exitCode}):$shellCommand")
 
       return ret
     }
-
-
-    fun waitLogcatLineByTag(waitTime:Int,tagSearch:String,adb: AdbDeviceRule):LogcatResult? {
+    fun waitLogcatLineByTag(waitTime:Int,tagSearch:String,adb: AdbDeviceRule):List<LogcatResult> {
       var found = false
       var text = ""
       var tag = ""
       var client = adb.adb;
+      val returnList:MutableList<LogcatResult>
+              = mutableListOf()
       runBlocking {
         val deviceTimezoneString = client.execute(GetSinglePropRequest("persist.sys.timezone"), adb.deviceSerial).trim()
         val deviceTimezone = TimeZone.getTimeZone(deviceTimezoneString)
@@ -67,6 +69,7 @@ class AdamUtils {
         val channel = client.execute(request, this, adb.deviceSerial)
 
         // Receive logcat for max several seconds, wait and find certain tag text
+
         for (i in 1..waitTime) {
           val lines:List<LogLine> = channel.receive()
             .split("\n")
@@ -78,20 +81,32 @@ class AdamUtils {
             }
 
           if(lines.isNotEmpty()){
-            println("matched logcat line found ${lines.size}")
-            tag = lines.get(0).tag
-            text = lines.get(0).text
-            found = true
-            break
+            logging("batch $i");
+            lines.forEach(){
+              //nowInstant.epochSecond
+              val epochSecond2 = it.date.time.time/1000
+              logging("LogTime:$epochSecond2 CallTime ${nowInstant.epochSecond}")
+              logging("$it")
+
+              returnList.add(LogcatResult(it.tag,it.text))
+              found = true
+            }
+            //println("matched logcat line found ${lines.size}")
+            //tag = lines.get(0).tag
+            //text = lines.get(0).text
+
+            //logging(text)
+
+
           }
           delay(100)
         }
         channel.cancel()
       }
       return if(found) {
-        LogcatResult(tag, text)
+        returnList
       } else {
-        null
+        emptyList()
       }
     }
 
@@ -112,13 +127,13 @@ class AdamUtils {
           this,
           adb.deviceSerial)
 
-        println("Process(Pull):"+sourcePath+"=>"+destPath.toString())
+        logging("Process(Pull):"+sourcePath+"=>"+destPath.toString())
 
         var percentage:Int
         for (percentageDouble in channel) {
           percentage = (percentageDouble * 100).toInt()
           if(percentage>=100) {
-            println("Pulling a file($sourcePath) $percentage% done")
+            logging("Pulling a file($sourcePath) $percentage% done")
             //percentage = 101
           }
         }
@@ -126,15 +141,16 @@ class AdamUtils {
     }
 
 
-    fun RemoveApk(apkFile: File, adb: AdbDeviceRule){
+    fun RemoveApk(apkFile: File, adb: AdbDeviceRule):String{
       var stdio: com.malinskiy.adam.request.shell.v1.ShellCommandResult
       val client:AndroidDebugBridgeClient = adb.adb
       runBlocking {
         val fileName = apkFile.name
-        client.execute(
+        stdio = client.execute(
           com.malinskiy.adam.request.shell.v1.ShellCommandRequest("rm /data/local/tmp/$fileName"),
           adb.deviceSerial)
       }
+      return stdio.output
     }
     @OptIn(ExperimentalCoroutinesApi::class)
     fun InstallApk(apkFile: File, reinstall: Boolean = false, adb: AdbDeviceRule): String {
@@ -157,7 +173,7 @@ class AdamUtils {
 
           if(progress!==null && progress==1.0 && done==false) {
             done = true
-            println("Install $fileName completed")
+            logging("Install $fileName completed")
           }
         }
         //add -g option to permit all exisitng runtime option

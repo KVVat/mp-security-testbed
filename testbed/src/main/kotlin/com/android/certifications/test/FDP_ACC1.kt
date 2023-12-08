@@ -3,12 +3,14 @@ package com.android.certifications.test
 import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.LogcatResult
+import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.pkg.UninstallRemotePackageRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandResult
 import kotlinx.coroutines.runBlocking
+import logging
 import org.hamcrest.MatcherAssert
 import org.hamcrest.core.IsEqual
 import org.hamcrest.core.StringStartsWith
@@ -21,6 +23,16 @@ import org.junit.rules.TestName
 import java.io.File
 import java.nio.file.Paths
 
+@SFR("FDP_ACC.1 Subset Access Control", """
+  The terms object and subject refer to generic elements in the TOE. For a policy to be 
+  implementable, the entities must be clearly identified. For a PP, the objects and operations might
+  be expressed as types such as: named objects, data repositories, observe accesses, etc. 
+  For a specific system these generic terms (subject, object) must be refined, e.g. files, registers,
+  ports, daemons, open calls, etc.
+  This component specifies that the policy cover some well-defined set of operations on some subset 
+  of the objects. It places no constraints on any operations outside the set - 
+  including operations on objects for which other operations are controlled.
+  """)
 class FDP_ACC1 {
 
     @Rule
@@ -62,16 +74,16 @@ class FDP_ACC1 {
     {
         runBlocking {
 
-            println("Found file to install:"+file_module.exists())
+            logging("Found file to install:"+file_module.exists())
             var response: ShellCommandResult
-            var result: LogcatResult?
+            var result: List<LogcatResult>
             var ret = AdamUtils.InstallApk(file_module,false,adb)
             MatcherAssert.assertThat(
                 a.Msg("Install Package"),
                 ret, StringStartsWith("Success")
             )
 
-            println("Install done")
+            logging("Install done")
 
             Thread.sleep(SHORT_TIMEOUT*2)
 
@@ -89,13 +101,18 @@ class FDP_ACC1 {
                 response.output, StringStartsWith("Starting")
             )
 
-            println("> Test result shows the file acccess status below. 0=Preference/1=Private File/2=Media Storage/3=Database")
-            result = AdamUtils.waitLogcatLineByTag(100,"FDP_ACC_1_TEST",adb)
+            logging("> Test result shows the file acccess status below. 0=Preference/1=Private File/2=Media Storage/3=Database")
+            result = AdamUtils.waitLogcatLineByTag(30,"FDP_ACC_1_TEST",adb)
+            var matched =false;
+            result.forEach{
+                if(it.text.equals("Test Result:true/true/true/true")){
+                    matched=true;
+                }
+            }
             MatcherAssert.assertThat(
                 a.Msg("Check Output of the Test Package"),
-                result?.text, IsEqual("Test Result:true/true/true/true")
+                matched, IsEqual(true)
             )
-            println(result?.text!!.trim())
             //uninstall application =>
             response = client.execute(UninstallRemotePackageRequest(TEST_PACKAGE), adb.deviceSerial)
             MatcherAssert.assertThat(
@@ -118,11 +135,17 @@ class FDP_ACC1 {
                 response.output, StringStartsWith("Starting")
             )
 
-            result = AdamUtils.waitLogcatLineByTag(100,"FDP_ACC_1_TEST",adb)
-            println(result?.text!!.trim())
+            result = AdamUtils.waitLogcatLineByTag(30,"FDP_ACC_1_TEST",adb)
+            matched=false
+            result.forEach{
+                if(it.text.equals("Test Result:false/false/true/false")){
+                    matched=true;
+                }
+            }
+
             MatcherAssert.assertThat(
                 a.Msg("Check Output of the Test Package"),
-                result?.text, IsEqual("Test Result:false/false/true/false")
+                matched, IsEqual(true)
             )
         }
     }
