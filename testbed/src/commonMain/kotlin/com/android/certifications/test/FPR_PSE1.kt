@@ -47,7 +47,7 @@ class FPR_PSE1 {
     var a: TestAssertLogger = TestAssertLogger(name)
 
     val file_module: File =
-        File(Paths.get("src", "main", "resources","FPR_PSE1", "uniqueid-debug.apk").toUri())
+        File(Paths.get("src", "commonMain", "resources","FPR_PSE1", "uniqueid-debug.apk").toUri())
 
     private val TEST_PACKAGE = "com.example.uniqueid"
 

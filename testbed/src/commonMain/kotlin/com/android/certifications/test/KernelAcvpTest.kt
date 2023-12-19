@@ -74,7 +74,7 @@ class KernelAcvpTest {
         }
     }
 
-    val RES_PATH  = "src/main/resources/kernelacvp"
+    val RES_PATH  = "src/commonMain/resources/kernelacvp"
     val OUT_PATH  = "../results/kernelacvp/"
     @OptIn(ExperimentalCoroutinesApi::class)
     fun pushFileToTmp(objFile: File, permission:String="", destdir:String="/data/local/tmp/") {

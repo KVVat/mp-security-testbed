@@ -44,7 +44,7 @@ class FDP_ACC1 {
     private val SHORT_TIMEOUT = 1000L
 
     private val file_module: File =
-        File(Paths.get("src", "main", "resources","FDP_ACC1", "assets-debug.apk").toUri())
+        File(Paths.get("src", "commonMain", "resources","FDP_ACC1", "assets-debug.apk").toUri())
     private val TEST_PACKAGE = "com.example.assets"
 
     @Rule @JvmField

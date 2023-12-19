@@ -33,11 +33,11 @@ class FDP_ACF_EXT {
     private val client: AndroidDebugBridgeClient = adb.adb;
 
     val file_apk_v1_debug: File =
-        File(Paths.get("src", "main", "resources","FCS_ACF_EXT", "appupdate-v1-debug.apk").toUri())
+        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v1-debug.apk").toUri())
     val file_apk_v2_signed: File =
-        File(Paths.get("src", "main", "resources","FCS_ACF_EXT", "appupdate-v2-signed.apk").toUri())
+        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v2-signed.apk").toUri())
     val file_apk_v2_debug: File =
-        File(Paths.get("src", "main", "resources","FCS_ACF_EXT", "appupdate-v2-debug.apk").toUri())
+        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v2-debug.apk").toUri())
 
     @Rule @JvmField
     var errs: ErrorCollector = ErrorCollector()

@@ -78,7 +78,7 @@ class FCS_CKH_EXT1 {
         runBlocking {
             //install file
             val file_apk =
-                File(Paths.get("src", "main", "resources","FCS_CKH_EXT1", TEST_MODULE).toUri())
+                File(Paths.get("src", "commonMain", "resources","FCS_CKH_EXT1", TEST_MODULE).toUri())
 
             val ret = AdamUtils.InstallApk(file_apk, false, adb)
             Assert.assertTrue(ret.startsWith("Success"))
