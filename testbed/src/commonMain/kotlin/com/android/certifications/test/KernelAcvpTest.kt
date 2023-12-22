@@ -292,7 +292,7 @@ class KernelAcvpTest {
         //Pull worklog, actual, diff file into results dir from device
 
         //AdamUtils.pullfile("/data/local/tmp/acvptest.log","../results/kernelacvp/",adb)
-        AdamUtils.pullfile("/data/local/tmp/actual.tar.gz","../results/kernelacvp/",adb)
+        AdamUtils.pullfile("/data/local/tmp/actual.tar.gz","${OUT_PATH}/kernelacvp/",adb)
 
         evaluateResultFiles(expectedDir)
     }
