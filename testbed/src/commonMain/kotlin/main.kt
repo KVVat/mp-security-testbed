@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.requiredSizeIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +51,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -58,22 +59,23 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import com.android.certifications.test.FCS_CKH_EXT1
 import com.android.certifications.test.utils.SFR
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.interactor.StartAdbInteractor
 import com.malinskiy.adam.request.device.ListDevicesRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
+import com.russhwolf.settings.PreferencesSettings
+import com.russhwolf.settings.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.impl.Stats.enabled
-import org.junit.runner.JUnitCore
-import kotlin.math.log
+import java.io.File
+import java.util.prefs.Preferences
+
 
 data class TestCase(
     val testClass:String
@@ -126,21 +128,32 @@ fun logging(line:String){
        println(line);
     }
 }
-
 // manage setting dialogue visibility from outside composable
-val flowVisibleDialog = MutableStateFlow(true)
+val flowVisibleDialog = MutableStateFlow(false)
 @OptIn(ExperimentalTextApi::class,ExperimentalMaterialApi::class)
 @Composable
 @Preview
-fun App() {
+fun App(settings: Settings) {
 
+    var sc by remember { mutableStateOf(settings) }
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
     var isTestRunning by remember { mutableStateOf(false) }
-    val isSettingOpen by flowVisibleDialog.collectAsState(true);
-    //emember { mutableStateOf(true) }
 
-    logger = remember { Logger(flowLogger,coroutineScope,loggerText) }
+
+    //Behaviour
+    var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
+    var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
+    var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
+
+    fun validateSettings():Boolean{
+        return File(resourcePath).isDirectory && File(outputPath).isDirectory
+    }
+
+    val isSettingOpen by flowVisibleDialog.collectAsState(false)
+
+
+    logger = remember { Logger (flowLogger,coroutineScope,loggerText) }
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
@@ -181,14 +194,14 @@ fun App() {
                         }
                     }
                     Column(modifier = Modifier.fillMaxSize().background(color = Color.Transparent).padding(10.dp)) {
-                        Button(modifier = Modifier.width(50.dp).height(50.dp)
+                        Button(modifier = Modifier.requiredSize(50.dp)
                             , onClick = {
                                 //isSettingOpen.em = true
                                 coroutineScope.launch {
                                     flowVisibleDialog.emit(true);
                                 }
                             }, content = {
-                                Text("⚙️", fontSize =20.sp)
+                                Text("⚙️", fontSize =18.sp)
                             }
                         )
 
@@ -201,26 +214,48 @@ fun App() {
         }
     }
 
-    //Behaviour
-    var resourcePath by remember { mutableStateOf("Hello Resource!") }
-    var outputPath by remember { mutableStateOf("Hello Output!") }
-    var useEmbedResource by remember { mutableStateOf(true) }
+
     //Launch Event
     LaunchedEffect(Unit) {
+        logging("application launched.")
+
+        if(!validateSettings()){
+            //isSettingOpen = false
+            flowVisibleDialog.emit(true)
+        }
         //text = String(resource("welcome.txt").readBytes())
     }
 
     if(isSettingOpen) {
-        Dialog(
-            onDismissRequest = {
-                logging("Folder Setting is dismissed")
+        // Path Setting Dialogue Implementation
+
+
+        var dlgmessage by remember { mutableStateOf("") }
+        fun onSettingDialogClose() {
+            logging("Folder Setting is dismissed")
+            dlgmessage=""
+            if(validateSettings()) {
+                //settingConfig.["PATH_OUTPUT"]=outputPath
                 coroutineScope.launch {
                     flowVisibleDialog.emit(false)
+                    //persist values to property file
+                    settings.putString("PATH_RESOURCE",resourcePath)
+                    settings.putString("PATH_OUTPUT",outputPath)
+                    settings.putBoolean("USE_EMBED_RES",useEmbedResource)
                 }
+            } else {
+                dlgmessage = "⚠️Need to set existent path."
+            }
+        }
+
+        Dialog(
+            onDismissRequest = {
+                onSettingDialogClose()
             },
         ){
             var showDirPicker by remember { mutableStateOf(false) }
             var targetDir by remember { mutableStateOf(0) }
+
             DirectoryPicker(showDirPicker) { path ->
                 showDirPicker = false
                 // do something with path
@@ -231,53 +266,54 @@ fun App() {
                 }
             }
 
-
             StandardOneButtonDialog("Folder Settings","OK",
                 onCloseRequest = {
-                    coroutineScope.launch {
-                        logging("Folder Setting has been updated")
-                        flowVisibleDialog.emit(false)
-                    }
+                    onSettingDialogClose()
                 }){
                 Column {
                     Text("Resource Folder", modifier = Modifier.fillMaxWidth())
                     //
                     Row(verticalAlignment = Alignment.CenterVertically){
                         TextField(value=resourcePath, onValueChange = { resourcePath=it },
-                            enabled=!useEmbedResource, modifier = Modifier.fillMaxWidth(0.8f))
+                            enabled=!useEmbedResource, modifier = Modifier.fillMaxWidth(0.85f))
                         Spacer(Modifier.size(6.dp))
-                        Button(modifier = Modifier.width(60.dp).height(40.dp)
+                        Button(modifier = Modifier.requiredSize(60.dp)
                             , onClick = {
                                 targetDir=0
                                 showDirPicker=true
                             }, content = {
-                                Text("▲", fontSize =20.sp)
-                            }
+                                Text("\uD83D\uDCC1", fontSize =18.sp)
+                            }, enabled = !useEmbedResource
                         )
                     }
                     //
                     LabelledCheckBox(checked = useEmbedResource, onCheckedChange = {
                         useEmbedResource=it
+                        if(it){
+                            resourcePath = System.getProperty("compose.application.resources.dir")
+                        }
                     },label="Use Embedded Resources" )
                     //
                     Text("Output Folder", modifier = Modifier.fillMaxWidth())
                     Row(verticalAlignment = Alignment.CenterVertically){
                         TextField(value=outputPath, onValueChange = { outputPath=it },
-                            enabled=true, modifier = Modifier.fillMaxWidth(0.8f))
+                            enabled=true, modifier = Modifier.fillMaxWidth(0.85f))
                         Spacer(Modifier.size(6.dp))
-                        Button(modifier = Modifier.width(60.dp).height(40.dp)
+                        Button(modifier = Modifier.requiredSize(60.dp)
                             , onClick = {
                                 targetDir=1
                                 showDirPicker=true
                             }, content = {
-                                Text("▲", fontSize =20.sp)
+                                Text("\uD83D\uDCC1", fontSize =18.sp)
                             }
                         )
                     }
+                    Text(dlgmessage, modifier = Modifier.fillMaxWidth())
                 }
-
             }
-            //logging("on open!");
+            if(useEmbedResource == true){
+                resourcePath = System.getProperty("compose.application.resources.dir")
+            }
         }
     }
 }
@@ -372,8 +408,12 @@ fun main() = application {
     )
     val windowTitle by remember { mutableStateOf("ADSRP Test Application") }
 
+    val preferences = Preferences.userRoot()
+    val settings = PreferencesSettings(preferences)
+
+
     Window(title=windowTitle,onCloseRequest = ::exitApplication, undecorated = false, state = state) {
-        App()
+        App(settings)
         MenuBar {
             Menu("File", mnemonic = 'F') {
                 Item(

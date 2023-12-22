@@ -42,6 +42,7 @@ kotlin {
                 implementation ("com.github.jsurfer:jsurfer-jackson:1.6.3")
 
                 implementation("com.darkrockstudios:mpfilepicker:3.1.0")
+                implementation("com.russhwolf:multiplatform-settings:1.1.1")
 
                 //Settings Library
                 implementation("com.russhwolf:multiplatform-settings:1.1.1")
