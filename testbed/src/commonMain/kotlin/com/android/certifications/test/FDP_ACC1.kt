@@ -5,6 +5,7 @@ import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.LogcatResult
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
+import com.android.certifications.test.utils.resource_path
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.pkg.UninstallRemotePackageRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
@@ -44,7 +45,7 @@ class FDP_ACC1 {
     private val SHORT_TIMEOUT = 1000L
 
     private val file_module: File =
-        File(Paths.get("src", "commonMain", "resources","FDP_ACC1", "assets-debug.apk").toUri())
+        File(Paths.get(resource_path(),"FDP_ACC1","assets-debug.apk").toUri())
     private val TEST_PACKAGE = "com.example.assets"
 
     @Rule @JvmField

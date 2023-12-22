@@ -5,7 +5,7 @@ import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.LogcatResult
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
-import com.malinskiy.adam.AndroidDebugBridgeClient
+import com.android.certifications.test.utils.resource_path
 import com.malinskiy.adam.request.misc.KillAdbRequest
 import com.malinskiy.adam.request.misc.RebootRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
@@ -78,7 +78,7 @@ class FCS_CKH_EXT1 {
         runBlocking {
             //install file
             val file_apk =
-                File(Paths.get("src", "commonMain", "resources","FCS_CKH_EXT1", TEST_MODULE).toUri())
+                File(Paths.get(resource_path(),"FCS_CKH_EXT1", TEST_MODULE).toUri())
 
             val ret = AdamUtils.InstallApk(file_apk, false, adb)
             Assert.assertTrue(ret.startsWith("Success"))

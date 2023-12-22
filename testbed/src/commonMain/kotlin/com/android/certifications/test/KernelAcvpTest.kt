@@ -4,6 +4,8 @@ import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
+import com.android.certifications.test.utils.output_path
+import com.android.certifications.test.utils.resource_path
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.flipkart.zjsonpatch.DiffFlags
@@ -25,7 +27,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ErrorCollector
 import org.junit.rules.TestName
-import org.junit.rules.TestWatcher
 import java.io.BufferedInputStream
 import java.io.BufferedReader
 import java.io.File
@@ -74,8 +75,8 @@ class KernelAcvpTest {
         }
     }
 
-    val RES_PATH  = "src/commonMain/resources/kernelacvp"
-    val OUT_PATH  = "../results/kernelacvp/"
+    val RES_PATH  = Paths.get(resource_path(),"kernelacvp").toAbsolutePath().toString()
+    val OUT_PATH  = output_path()
     @OptIn(ExperimentalCoroutinesApi::class)
     fun pushFileToTmp(objFile: File, permission:String="", destdir:String="/data/local/tmp/") {
         runBlocking {
@@ -196,7 +197,7 @@ class KernelAcvpTest {
         targz_reader(Paths.get(OUT_PATH,"actual.tar.gz").toUri()) { name, tartext ->
             val fname: String = Paths.get(name).fileName.toString()
             var result = true
-            val uri:URI = Paths.get(RES_PATH+expectedDir,"$fname.bz2").toUri()
+            val uri:URI = Paths.get(RES_PATH,expectedDir,"$fname.bz2").toUri()
             try {
                 val br2text = bz2reader(uri)//.readText()
                 if (br2text !== null) {

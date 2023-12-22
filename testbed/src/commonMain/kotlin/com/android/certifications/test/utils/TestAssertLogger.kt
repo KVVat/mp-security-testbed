@@ -2,7 +2,6 @@ package com.android.certifications.test.utils
 
 import java.text.DecimalFormat
 import org.junit.rules.TestName
-import org.junit.runner.Description
 import logging
 class TestAssertLogger(name: TestName){
   var inc:Int = 0;

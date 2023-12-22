@@ -4,6 +4,7 @@ import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
+import com.android.certifications.test.utils.resource_path
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.pkg.UninstallRemotePackageRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
@@ -47,7 +48,7 @@ class FPR_PSE1 {
     var a: TestAssertLogger = TestAssertLogger(name)
 
     val file_module: File =
-        File(Paths.get("src", "commonMain", "resources","FPR_PSE1", "uniqueid-debug.apk").toUri())
+        File(Paths.get(resource_path(),"FPR_PSE1", "uniqueid-debug.apk").toUri())
 
     private val TEST_PACKAGE = "com.example.uniqueid"
 

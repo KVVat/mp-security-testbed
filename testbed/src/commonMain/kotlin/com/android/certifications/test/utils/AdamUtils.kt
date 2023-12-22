@@ -8,7 +8,6 @@ import com.malinskiy.adam.request.adbd.RootAdbdMode
 import com.malinskiy.adam.request.logcat.ChanneledLogcatRequest
 import com.malinskiy.adam.request.logcat.LogcatSinceFormat
 import com.malinskiy.adam.request.misc.FetchHostFeaturesRequest
-import com.malinskiy.adam.request.misc.KillAdbRequest
 import com.malinskiy.adam.request.pkg.InstallRemotePackageRequest
 import com.malinskiy.adam.request.prop.GetSinglePropRequest
 import com.malinskiy.adam.request.shell.v2.ShellCommandRequest
@@ -26,7 +25,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
 import java.util.TimeZone
-import kotlin.math.log
 
 class AdamUtils {
   companion object{

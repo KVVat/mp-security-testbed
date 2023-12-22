@@ -4,6 +4,7 @@ import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.TestAssertLogger
+import com.android.certifications.test.utils.resource_path
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.pkg.UninstallRemotePackageRequest
 import kotlinx.coroutines.runBlocking
@@ -33,11 +34,11 @@ class FDP_ACF_EXT {
     private val client: AndroidDebugBridgeClient = adb.adb;
 
     val file_apk_v1_debug: File =
-        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v1-debug.apk").toUri())
+        File(Paths.get(resource_path(),"FCS_ACF_EXT", "appupdate-v1-debug.apk").toUri())
     val file_apk_v2_signed: File =
-        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v2-signed.apk").toUri())
+        File(Paths.get(resource_path(),"FCS_ACF_EXT", "appupdate-v2-signed.apk").toUri())
     val file_apk_v2_debug: File =
-        File(Paths.get("src", "commonMain", "resources","FCS_ACF_EXT", "appupdate-v2-debug.apk").toUri())
+        File(Paths.get(resource_path(),"FCS_ACF_EXT", "appupdate-v2-debug.apk").toUri())
 
     @Rule @JvmField
     var errs: ErrorCollector = ErrorCollector()
