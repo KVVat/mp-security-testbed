@@ -22,6 +22,8 @@ import java.io.Writer
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.Date
+import java.util.Enumeration
+import java.util.Properties
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -57,10 +59,11 @@ import javax.xml.parsers.DocumentBuilderFactory
  * @taskpackage org.junit.junit4
  * @since 0.9
  */
-class AntXmlRunListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit) : RunListener() {
+class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properties, finishHandler:()->Unit) : RunListener() {
     private var outputStream: OutputStream? = null
     private val print_=cbPrint;
     private val finishHandler = finishHandler;
+
     /**
      * The XML document.
      */
@@ -136,22 +139,28 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit) : Ru
         val propsElement = m_doc!!.createElement(PROPERTIES)
         m_rootElement!!.appendChild(propsElement)
 
+//       <property name="SFR.name" value="Kernel ACVP Test Case" />
+//       <property name="SFR.description" value="FIPS 140-2 test case" />
+//       <property name="device" value="Pixel 8" />
+//       <property name="osversion" value="14" />
+//       <property name="system" value="shiba-userdebug 14 UD1A.230803.026 10707797 dev-keys" />
+//       <property name="signature" value="33171FDJH000F7" />
 
-        print_(">>"+m_rootElement.toString())
+        //print_(">>"+m_rootElement.toString())
         // Where do these come from?
-        //		Properties props = suite.getProperties();
-        //		if (props != null)
-        //		{
-        //			Enumeration e = props.propertyNames();
-        //			while (e.hasMoreElements())
-        //			{
-        //				String name = (String) e.nextElement();
-        //				Element propElement = doc.createElement(PROPERTY);
-        //				propElement.setAttribute(ATTR_NAME, name);
-        //				propElement.setAttribute(ATTR_VALUE, props.getProperty(name));
-        //				propsElement.appendChild(propElement);
-        //			}
-        //		}
+    	//Properties props = suite?.getProperties();
+        if (props != null)
+        {
+            val e: Enumeration<*>? = props.propertyNames();
+            while (e!!.hasMoreElements())
+            {
+                val name =  e.nextElement() as String
+                val propElement = m_doc!!.createElement(PROPERTY);
+                propElement.setAttribute(ATTR_NAME, name);
+                propElement.setAttribute(ATTR_VALUE, props.getProperty(name));
+                propsElement.appendChild(propElement);
+            }
+        }
     }
 
     /**
@@ -378,6 +387,11 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit) : Ru
          * name of host running the tests
          */
         private const val HOSTNAME = "hostname"
+
+
+        private const val PROPERTY = "property"
+        private const val ATTR_VALUE = "value"
+
 
         /**
          * Convenient method to retrieve the full stacktrace from a given exception.

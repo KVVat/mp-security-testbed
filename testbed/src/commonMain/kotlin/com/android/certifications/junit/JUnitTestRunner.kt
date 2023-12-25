@@ -30,6 +30,7 @@ class JUnitTestRunner(classes_: Array<Class<*>?>,listener_:RunListener?=null) : 
 
         val junitCore = JUnitCore()
         junitCore.addListener(listener)
+        
         var hasError = false
         for (c in classes) {
             //ParallelComputer.methods()

@@ -74,6 +74,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Paths
+import java.util.Properties
 import java.util.logging.FileHandler
 import java.util.logging.Level
 import java.util.logging.Logger
@@ -191,7 +192,7 @@ fun App(settings: Settings) {
                                     console.clear()
                                     logging("[[${it.title}]]")
 
-                                    val arunner =  AntXmlRunListener(::logging) {
+                                    val arunner =  AntXmlRunListener(::logging, Properties()) {
                                         isTestRunning = false;
                                     }
                                     arunner.setOutputStream(
