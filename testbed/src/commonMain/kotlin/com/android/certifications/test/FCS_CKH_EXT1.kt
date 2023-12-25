@@ -34,7 +34,7 @@ import java.nio.file.Paths
   generated, with which key lengths and according to which standards] ensuring that the key hierarchy
   uses the DUK directly or indirectly in the derivation of the data encryption key(s) for Low user 
   data assets. 
-  """)
+  ""","FCS_CKH_EXT1")
 class FCS_CKH_EXT1 {
 
     @Rule

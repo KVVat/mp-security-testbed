@@ -54,7 +54,11 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.android.certifications.junit.JUnitTestRunner
+import com.android.certifications.junit.UnitTestingTextListener
+import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.utils.SFR
+import com.android.certifications.test.utils.output_path
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.interactor.StartAdbInteractor
@@ -68,6 +72,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Paths
+import java.util.logging.FileHandler
+import java.util.logging.Level
+import java.util.logging.Logger
+import java.util.logging.SimpleFormatter
 import java.util.prefs.Preferences
 
 
@@ -99,9 +109,13 @@ val testCases = listOf(
     TestCase("FCS_CKH_EXT1"),
 
     )
+
+
+//static final Logger logger = Logger.getLogger(Logging.class.getName());
+val logger = Logger.getLogger("TestBed");
 //Log Utils which supports to record data in textarea from outside of the compose.
 @Stable
-class Logger(val myLogger:MutableStateFlow<String>,
+class LogConsole(val myLogger:MutableStateFlow<String>,
                   val coroutineScope: CoroutineScope,val loggerText:String,
                   val textStack:MutableList<String> = mutableListOf()
 ){
@@ -112,13 +126,13 @@ class Logger(val myLogger:MutableStateFlow<String>,
         }
     }
 }
-lateinit var logger:Logger;
+lateinit var console:LogConsole;
 val flowLogger = MutableStateFlow("")
 fun logging(line: String){
-   logger.coroutineScope.launch {
-       logger.textStack.add(line);
-       logger.myLogger.emit(logger.textStack.joinToString("\r\n"));
-
+   console.coroutineScope.launch {
+       console.textStack.add(line);
+       console.myLogger.emit(console.textStack.joinToString("\r\n"));
+       logger.info(line);
        println(line);
     }
 }
@@ -134,20 +148,33 @@ fun App(settings: Settings) {
     val loggerText by flowLogger.collectAsState("")
     var isTestRunning by remember { mutableStateOf(false) }
 
-
     //Behaviour
     var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
     var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
+    var fileHandler:FileHandler? = null;//FileHandler(outputPath, false)
 
     fun validateSettings():Boolean{
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
     }
+    fun updateLogger(){
+        if(fileHandler !== null) logger.removeHandler(fileHandler)
+        var newfilepath:String
+            = Paths.get(outputPath,"testbed.log").toAbsolutePath().toString();
+        logging(newfilepath);
+        fileHandler =
+            FileHandler(newfilepath, false)
 
+        fileHandler!!.formatter = SimpleFormatter()
+        //java.util.logging.SimpleFormatter.format="%4$s: %5$s [%1$tc]%n"
+
+
+        logger.addHandler(fileHandler)
+        logger.level = Level.FINE
+    }
     val isSettingOpen by flowVisibleDialog.collectAsState(false)
 
-
-    logger = remember { Logger (flowLogger,coroutineScope,loggerText) }
+    console = remember { LogConsole (flowLogger,coroutineScope,loggerText) }
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
@@ -161,13 +188,19 @@ fun App(settings: Settings) {
                                     .padding(4.dp),
                                 onClick = {
                                     isTestRunning = true;
-                                    logger.clear()
+                                    console.clear()
                                     logging("[[${it.title}]]")
+
+                                    val arunner =  AntXmlRunListener(::logging) {
+                                        isTestRunning = false;
+                                    }
+                                    arunner.setOutputStream(
+                                        FileOutputStream(
+                                        Paths.get(output_path(),"junit-report.xml").toFile())
+                                    )
                                     val clazz = Class.forName(testPackage + "." + it.testClass)
-                                    val runner = JUnitTestRunner(arrayOf(clazz),
-                                        UnitTestingTextListener(::logging) {
-                                            isTestRunning = false;
-                                        })
+                                    val runner = JUnitTestRunner(arrayOf(clazz),arunner)
+
                                     runner.start()
                                 },
                             ) {
@@ -211,13 +244,16 @@ fun App(settings: Settings) {
 
     //Launch Event
     LaunchedEffect(Unit) {
+        updateLogger()
         logging("application launched.")
-
         if(!validateSettings()){
             //isSettingOpen = false
             flowVisibleDialog.emit(true)
         }
         //text = String(resource("welcome.txt").readBytes())
+
+
+
     }
 
     if(isSettingOpen) {
@@ -237,6 +273,9 @@ fun App(settings: Settings) {
                     settings.putString("PATH_OUTPUT",outputPath)
                     settings.putBoolean("USE_EMBED_RES",useEmbedResource)
                 }
+
+
+
             } else {
                 dlgmessage = "⚠️Need to set existent path."
             }

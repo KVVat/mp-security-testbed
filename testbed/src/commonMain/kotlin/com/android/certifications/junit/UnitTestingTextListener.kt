@@ -1,8 +1,10 @@
+package com.android.certifications.junit
 import org.junit.runner.Description
 import org.junit.runner.Result
 import org.junit.runner.notification.Failure
 import org.junit.runner.notification.RunListener
-class UnitTestingTextListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit) : RunListener() {
+
+class UnitTestingTextListener(cbPrint:(line:String)->Unit, private val finishHandler: () -> Unit) : RunListener() {
     private var numTests = 0
     private var numFailures = 0
     private val numUnexpected = 0 // Never changes, but required in output.
@@ -10,13 +12,22 @@ class UnitTestingTextListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit
     private var testStartTime = 0.0
 
     private val print_=cbPrint;
-    private val finishHandler = finishHandler
 
     private fun printf(format: String, vararg args: Any) {
         // Avoid using printf() or println() because they will be flushed in pieces and cause
         // interleaving with logger messages.
         print_(String.format(format, *args))
     }
+
+    @Throws(java.lang.Exception::class)
+    override fun testStarted(description: Description) {
+
+        numTests++
+        testFailure = null
+        testStartTime = System.currentTimeMillis().toDouble()
+        printf("Test Case '-[%s]' started.", parseDescription(description))
+    }
+
     @Throws(java.lang.Exception::class)
     override fun testRunFinished(result: Result?){
         printf(
@@ -26,13 +37,6 @@ class UnitTestingTextListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit
         finishHandler()
     }
 
-    @Throws(java.lang.Exception::class)
-    override fun testStarted(description: Description) {
-        numTests++
-        testFailure = null
-        testStartTime = System.currentTimeMillis().toDouble()
-        printf("Test Case '-[%s]' started.", parseDescription(description))
-    }
 
     @Throws(java.lang.Exception::class)
     override fun testFinished(description: Description) {
@@ -66,7 +70,6 @@ class UnitTestingTextListener(cbPrint:(line:String)->Unit,finishHandler:()->Unit
         val methodName = displayName.substring(0, p1)
         val className = displayName.substring(p1 + 1, p2)
         return className+" "+ methodName
-        //replaceAll(className).toString() + " " + methodName
     }
 
 
