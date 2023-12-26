@@ -12,7 +12,7 @@ import java.io.File
 import java.nio.file.Paths
 
 
-@SFR("System Test","The test for debug and development purpose")
+@SFR("System Test","The test for debug and development purpose","output")
 class OutputTest {
 
 
@@ -40,14 +40,12 @@ class OutputTest {
             //working directory
             val workingpath = Paths.get("").toAbsolutePath().toString()
             logging("Working dir = $workingpath");
-            //
-            logging(resourcesDir.resolve("aaa.txt").readText())
-            //
+            logging(resourcesDir.resolve("common/file_common.txt").readText())
             logging(System.getProperty("compose.application.resources.dir"));
-            val properites = System.getProperties()
+            /*val properites = System.getProperties()
             properites.entries.forEach{
                 logging("${it.key}=${it.value}")
-            }
+            }*/
 
         }
         logging("ClassName"+this.javaClass.canonicalName);

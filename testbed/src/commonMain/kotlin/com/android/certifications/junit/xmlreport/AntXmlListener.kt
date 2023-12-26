@@ -1,5 +1,6 @@
 package com.android.certifications.junit.xmlreport
 
+import logging
 import org.junit.runner.Description
 import org.junit.runner.Result
 import org.junit.runner.notification.Failure
@@ -103,7 +104,6 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
 
     fun setOutputStream(outputStream: OutputStream?) {
         this.outputStream = outputStream
-        print_(">out steram:"+outputStream);
     }
 
     private val hostname: String
@@ -139,25 +139,17 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
         val propsElement = m_doc!!.createElement(PROPERTIES)
         m_rootElement!!.appendChild(propsElement)
 
-//       <property name="SFR.name" value="Kernel ACVP Test Case" />
-//       <property name="SFR.description" value="FIPS 140-2 test case" />
-//       <property name="device" value="Pixel 8" />
-//       <property name="osversion" value="14" />
-//       <property name="system" value="shiba-userdebug 14 UD1A.230803.026 10707797 dev-keys" />
-//       <property name="signature" value="33171FDJH000F7" />
-
-        //print_(">>"+m_rootElement.toString())
-        // Where do these come from?
-    	//Properties props = suite?.getProperties();
-        if (props != null)
+        if (props.size>=0)
         {
             val e: Enumeration<*>? = props.propertyNames();
             while (e!!.hasMoreElements())
             {
+
                 val name =  e.nextElement() as String
                 val propElement = m_doc!!.createElement(PROPERTY);
+                print(name)
                 propElement.setAttribute(ATTR_NAME, name);
-                propElement.setAttribute(ATTR_VALUE, props.getProperty(name));
+                propElement.setAttribute(ATTR_VALUE, props.getProperty(name).trimIndent());
                 propsElement.appendChild(propElement);
             }
         }
@@ -244,6 +236,11 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
             ATTR_TIME,
             "" + (System.currentTimeMillis() - l!!) / ONE_SECOND
         )
+
+        //Add System Out and System Error here
+        //<system-out><![CDATA[==========================================
+        //<system-err><![CDATA[==========================================
+
     }
 
     /**
@@ -267,7 +264,7 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
             wri.write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n")
             DOMElementWriter().write(m_rootElement!!, wri, 0, "  ")
             wri.flush()
-
+            logging("[[The test has been finished]]")
         } catch (exc: IOException) {
             throw RuntimeException("Unable to write log file", exc)
         }  finally {

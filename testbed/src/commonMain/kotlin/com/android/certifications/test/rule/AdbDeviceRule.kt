@@ -29,15 +29,17 @@ import java.time.Duration
  * If device doesn't have required features - assumption failure
  */
 class AdbDeviceRule(val deviceType: DeviceType = DeviceType.ANY, vararg val requiredFeatures: Feature) : TestRule {
+
     lateinit var deviceSerial: String
     lateinit var supportedFeatures: List<Feature>
     lateinit var lineSeparator: String
     lateinit var osversion: String
-    lateinit var system: String
+    lateinit var displayId: String
     lateinit var productmodel: String
+
     val adb = AndroidDebugBridgeClientFactory().build()
     val initTimeout: Duration = Duration.ofSeconds(10)
-
+    fun isDeviceInitialised() = ::deviceSerial.isInitialized
     override fun apply(base: Statement, description: Description): Statement {
         return object : Statement() {
             override fun evaluate() {
@@ -117,7 +119,7 @@ class AdbDeviceRule(val deviceType: DeviceType = DeviceType.ANY, vararg val requ
                         ShellCommandRequest("getprop ro.build.version.release"),
                         device.serial).output
 
-                    system = adb.execute(
+                    displayId = adb.execute(
                         ShellCommandRequest("getprop ro.build.display.id"),
                         device.serial).output
 
@@ -140,7 +142,21 @@ class AdbDeviceRule(val deviceType: DeviceType = DeviceType.ANY, vararg val requ
         throw RuntimeException("Timeout waiting for device")
     }
 
-    private suspend fun startAdb() {
+    suspend fun startAlone(){
+        runBlocking {
+            withTimeoutOrNull(initTimeout.toMillis()) {
+                //First we start the adb if it is not running
+                startAdb()
+
+                //Wait for compatible device
+                //boot + supported features
+                val device = waitForDevice()
+                deviceSerial = device.serial
+            } ?: throw RuntimeException("Timeout waiting for device")
+        }
+    }
+
+   suspend fun startAdb() {
         try {
             adb.execute(GetAdbServerVersionRequest())
         } catch (e: ConnectException) {

@@ -25,7 +25,7 @@ import logging
   FDP_ACF.1 Security attribute based access control allows the TSF to enforce access based upon 
   security attributes and named groups of attributes. Furthermore, the TSF may have the ability to
   explicitly authorize or deny access to an object based upon security attributes.
-  """)
+  ""","fdpacfext1")
 class FDP_ACF_EXT {
 
     @Rule

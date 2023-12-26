@@ -1,6 +1,6 @@
 package com.android.certifications.test.utils
 
 annotation class SFR(
-  val title:String,
-  val description:String,
-  val shortname:String="")
+  val title:String="titile",
+  val description:String="description",
+  val shortname:String="name")

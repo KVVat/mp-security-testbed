@@ -57,12 +57,18 @@ import androidx.compose.ui.window.rememberWindowState
 import com.android.certifications.junit.JUnitTestRunner
 import com.android.certifications.junit.UnitTestingTextListener
 import com.android.certifications.junit.xmlreport.AntXmlRunListener
+import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.output_path
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
+import com.malinskiy.adam.exception.RequestRejectedException
 import com.malinskiy.adam.interactor.StartAdbInteractor
+import com.malinskiy.adam.request.adbd.RestartAdbdRequest
+import com.malinskiy.adam.request.adbd.RootAdbdMode
 import com.malinskiy.adam.request.device.ListDevicesRequest
+import com.malinskiy.adam.request.misc.GetAdbServerVersionRequest
+import com.malinskiy.adam.request.prop.GetSinglePropRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
@@ -71,9 +77,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.RuntimeException
 import java.nio.file.Paths
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Properties
 import java.util.logging.FileHandler
 import java.util.logging.Level
@@ -108,7 +119,6 @@ val testCases = listOf(
     TestCase("FDP_ACC1"),
     TestCase("KernelAcvpTest"),
     TestCase("FCS_CKH_EXT1"),
-
     )
 
 
@@ -132,6 +142,8 @@ val flowLogger = MutableStateFlow("")
 fun logging(line: String){
    console.coroutineScope.launch {
        console.textStack.add(line);
+       if(console.textStack.size>500)
+           console.clear()
        console.myLogger.emit(console.textStack.joinToString("\r\n"));
        logger.info(line);
        println(line);
@@ -139,12 +151,15 @@ fun logging(line: String){
 }
 // manage setting dialogue visibility from outside composable
 val flowVisibleDialog = MutableStateFlow(false)
+data class AdbProps(val osVersion:String, val model:String,val serial:String, val displayId:String)
+
 @OptIn(ExperimentalTextApi::class,ExperimentalMaterialApi::class)
 @Composable
 @Preview
 fun App(settings: Settings) {
 
     var sc by remember { mutableStateOf(settings) }
+    var ap by remember { mutableStateOf(AdbProps("","","","")) }
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
     var isTestRunning by remember { mutableStateOf(false) }
@@ -154,6 +169,8 @@ fun App(settings: Settings) {
     var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
     var fileHandler:FileHandler? = null;//FileHandler(outputPath, false)
+
+    var adbProps:AdbProps?=null
 
     fun validateSettings():Boolean{
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
@@ -168,14 +185,71 @@ fun App(settings: Settings) {
 
         fileHandler!!.formatter = SimpleFormatter()
         //java.util.logging.SimpleFormatter.format="%4$s: %5$s [%1$tc]%n"
-
-
         logger.addHandler(fileHandler)
         logger.level = Level.FINE
     }
     val isSettingOpen by flowVisibleDialog.collectAsState(false)
 
     console = remember { LogConsole (flowLogger,coroutineScope,loggerText) }
+    var adbIsValid by remember { mutableStateOf(false) }
+    lateinit var adb:AdbDeviceRule
+    suspend fun observeAdb():Boolean{
+        try {
+            adb = AdbDeviceRule()
+            val client = adb.adb
+            adb.startAlone()
+            while(true){
+                Thread.sleep(1000)
+                if(isTestRunning) continue
+                var initialised = adb.isDeviceInitialised()
+                try {
+                    if (initialised) {
+                        if (!adbIsValid) {
+                            logging("Device Connected > " + adb.deviceSerial)
+                            ap =
+                                AdbProps(
+                                    adb.osversion,
+                                    adb.productmodel,
+                                    adb.deviceSerial,
+                                    adb.displayId
+                                )
+                        }
+                        adbIsValid = true
+                        //Hopefully finish gently but it raises exception..
+                        client.execute(ShellCommandRequest("echo"))
+                    }
+                } catch (anyException:Exception) {
+                    if(anyException is RequestRejectedException) {
+                        adb.startAlone()
+                        continue
+                    } else {
+                        throw anyException
+                    }
+                }
+            }
+        } catch (exception:Exception){
+            logging("Device Disconnected > "+exception.localizedMessage)
+            adbIsValid = false
+            ap= AdbProps("","","","")
+        }
+        return true
+    }
+
+    //Launch Event
+    LaunchedEffect(Unit) {
+        updateLogger()
+        logging("application launched.")
+        if(!validateSettings()){
+            //isSettingOpen = false
+            flowVisibleDialog.emit(true)
+        }
+        //text = String(resource("welcome.txt").readBytes())
+        launch {
+            withContext(Dispatchers.IO) {
+                while(true){ observeAdb() }
+            }
+        }
+    }
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
@@ -192,14 +266,31 @@ fun App(settings: Settings) {
                                     console.clear()
                                     logging("[[${it.title}]]")
 
-                                    val arunner =  AntXmlRunListener(::logging, Properties()) {
+                                    val clazz = Class.forName(testPackage + "." + it.testClass)
+                                    var sfr =clazz.getAnnotation(SFR::class.java)
+                                    if(sfr == null){
+                                        sfr = SFR("title","description","shortname")
+                                    }
+
+                                    val testProps = Properties()
+                                    testProps.setProperty("SFR.name",sfr.title)
+                                    testProps.setProperty("SFR.description",sfr.description)
+                                    if(!ap.osVersion.equals("")){
+                                      testProps.setProperty("device", ap.model)
+                                      testProps.setProperty("osversion", ap.osVersion)
+                                      testProps.setProperty("system", ap.displayId)
+                                      testProps.setProperty("signature", ap.serial)
+                                    }
+                                    //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
+                                    val arunner =  AntXmlRunListener(::logging, testProps) {
                                         isTestRunning = false;
                                     }
+                                    val now = SimpleDateFormat("yyyymmddHHmmss").format(Date())
                                     arunner.setOutputStream(
                                         FileOutputStream(
-                                        Paths.get(output_path(),"junit-report.xml").toFile())
+                                        Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
                                     )
-                                    val clazz = Class.forName(testPackage + "." + it.testClass)
+
                                     val runner = JUnitTestRunner(arrayOf(clazz),arunner)
 
                                     runner.start()
@@ -237,25 +328,18 @@ fun App(settings: Settings) {
                 }
 
                 //
-                SelectionContainer { LogText(loggerText) }
+                SelectionContainer {
+                    LogText(loggerText)
+                    Text(if(adbIsValid) "🟢" else "🛑", modifier = Modifier.background(Color.Transparent)
+                        , color = Color.Black
+                    )
+                }
             }
         }
     }
 
 
-    //Launch Event
-    LaunchedEffect(Unit) {
-        updateLogger()
-        logging("application launched.")
-        if(!validateSettings()){
-            //isSettingOpen = false
-            flowVisibleDialog.emit(true)
-        }
-        //text = String(resource("welcome.txt").readBytes())
 
-
-
-    }
 
     if(isSettingOpen) {
         // Path Setting Dialogue Implementation
@@ -419,6 +503,9 @@ fun LogText(text: String) {
     LaunchedEffect(text) {
         logState.animateScrollTo(logState.maxValue)
     }
+
+    //Can change colors each lines?
+    //https://stackoverflow.com/questions/72832802/how-to-show-multiple-color-text-in-same-text-view-with-jetpack-compose
 
     Text(
         text = text, color = Color.Green, fontFamily = FontFamily.Monospace,

@@ -12,7 +12,7 @@ kotlin {
     jvm {}
     sourceSets {
 
-        println("namesß***********"+this.names)
+        //println("namesß***********"+this.names)
 
         val commonMain by getting  {
 
@@ -21,11 +21,6 @@ kotlin {
             resources.srcDirs.forEach{
               println(">"+it.absolutePath.toString())
             }
-            //    "src/commonMain/resources")
-            //println("namesß***********"+this.resources)
-
-            //resources.
-            //
 
             dependencies {
                 implementation(compose.desktop.currentOs)
