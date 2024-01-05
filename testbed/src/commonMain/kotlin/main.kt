@@ -262,6 +262,12 @@ fun App(settings: Settings) {
                                 modifier = Modifier.padding(1.dp).height(120.dp).fillParentMaxWidth()
                                     .padding(4.dp),
                                 onClick = {
+
+                                    if(!adbIsValid){
+                                        logging("*** Need to connect a device to run the test cases.")
+                                        return@Card;
+                                    }
+
                                     isTestRunning = true;
                                     console.clear()
                                     logging("[[${it.title}]]")
@@ -285,7 +291,7 @@ fun App(settings: Settings) {
                                     val arunner =  AntXmlRunListener(::logging, testProps) {
                                         isTestRunning = false;
                                     }
-                                    val now = SimpleDateFormat("yyyymmddHHmmss").format(Date())
+                                    val now = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
                                     arunner.setOutputStream(
                                         FileOutputStream(
                                         Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
