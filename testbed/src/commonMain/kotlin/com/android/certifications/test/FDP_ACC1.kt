@@ -33,7 +33,7 @@ import java.nio.file.Paths
   This component specifies that the policy cover some well-defined set of operations on some subset 
   of the objects. It places no constraints on any operations outside the set - 
   including operations on objects for which other operations are controlled.
-  """)
+  """, shortname = "FDP_ACC1")
 class FDP_ACC1 {
 
     @Rule

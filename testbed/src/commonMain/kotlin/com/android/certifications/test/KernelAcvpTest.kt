@@ -45,7 +45,7 @@ import kotlin.io.path.nameWithoutExtension
 
 @SFR("Kernel ACVP Test Case", """
     FIPS 140-2 test case
-    ""","kernelacvp")
+    ""","KernelAcvp")
 class KernelAcvpTest {
 
     @Rule

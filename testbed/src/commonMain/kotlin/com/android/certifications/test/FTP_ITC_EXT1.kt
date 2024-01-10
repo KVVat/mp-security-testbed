@@ -1,6 +1,7 @@
 package com.android.certifications.test
 
 import com.android.certifications.test.rule.AdbDeviceRule
+import com.android.certifications.test.utils.SFR
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.runBlocking
@@ -9,6 +10,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+@SFR("FTP_ITC_EXT1", """ 
+  ""","FTP_ITC_EXT1")
 class FTP_ITC_EXT1 {
 
     @Rule
