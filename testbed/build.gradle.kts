@@ -10,18 +10,13 @@ plugins {
 
 kotlin {
     jvm {}
+
     sourceSets {
-
-        //println("namesß***********"+this.names)
-
-        val commonMain by getting  {
-
+        val commonMain by getting {
             resources.srcDirs("src/commonMain/resources")
-
             resources.srcDirs.forEach{
-              println(">"+it.absolutePath.toString())
+                println(">"+it.absolutePath.toString())
             }
-
             dependencies {
                 implementation(compose.desktop.currentOs)
 
@@ -79,13 +74,6 @@ compose.desktop {
             includeAllModules=true
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             outputBaseDir.set(project.buildDir.resolve("output"))
-                //modules("java.sql")
-                // alternatively: includeAllModules = true
-            macOS {
-            }
-            linux {
-
-            }
 
         }
     }

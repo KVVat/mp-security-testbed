@@ -1,5 +1,6 @@
 package com.android.certifications.test
 
+import Platform
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.output_path
 import com.android.certifications.test.utils.resource_path
@@ -42,6 +43,7 @@ class OutputTest {
             logging("Working dir = $workingpath");
             logging(resourcesDir.resolve("common/file_common.txt").readText())
             logging(System.getProperty("compose.application.resources.dir"));
+            logging(Platform().platform)
             /*val properites = System.getProperties()
             properites.entries.forEach{
                 logging("${it.key}=${it.value}")
