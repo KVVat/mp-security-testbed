@@ -139,6 +139,7 @@ class LogConsole(val myLogger:MutableStateFlow<String>,
 }
 lateinit var console:LogConsole;
 val flowLogger = MutableStateFlow("")
+var antRunner:AntXmlRunListener? = null
 fun logging(line: String){
    console.coroutineScope.launch {
        console.textStack.add(line);
@@ -147,6 +148,9 @@ fun logging(line: String){
        console.myLogger.emit(console.textStack.joinToString("\r\n"));
        logger.info(line);
        println(line);
+       antRunner?.appendSystemOut(line)
+       //println(antRunner?.javaClass?.kotlin?.simpleName)
+
     }
 }
 // manage setting dialogue visibility from outside composable
@@ -288,16 +292,16 @@ fun App(settings: Settings) {
                                       testProps.setProperty("signature", ap.serial)
                                     }
                                     //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
-                                    val arunner =  AntXmlRunListener(::logging, testProps) {
+                                    antRunner =  AntXmlRunListener(::logging, testProps) {
                                         isTestRunning = false;
                                     }
                                     val now = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
-                                    arunner.setOutputStream(
+                                    antRunner!!.setOutputStream(
                                         FileOutputStream(
                                         Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
                                     )
 
-                                    val runner = JUnitTestRunner(arrayOf(clazz),arunner)
+                                    val runner = JUnitTestRunner(arrayOf(clazz),antRunner)
 
                                     runner.start()
                                 },

@@ -260,6 +260,10 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
                 ATTR_TIME,
                 "" + result.runTime / ONE_SECOND
             )
+
+            setSystemOutput(systemOutList.joinToString("\r\n"))
+            setSystemError("")
+
             val wri: Writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF8"))
             wri.write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n")
             DOMElementWriter().write(m_rootElement!!, wri, 0, "  ")
@@ -273,14 +277,14 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
         }
     }
 
-    @Throws(Throwable::class)
-    protected fun finalize() {
-        if (outputStream != null) {
-            outputStream!!.close()
-        }
-        //super.finalize()
-        //super.
-    } //
+//    @Throws(Throwable::class)
+//    protected fun finalize() {
+//        if (outputStream != null) {
+//            outputStream!!.close()
+//        }
+//        //super.finalize()
+//        //super.
+//    } //
 
     //	/**
     //	 * Where to write the log to.
@@ -293,24 +297,34 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
     //		this.out = out;
     //	}
     //
-    //	/** {@inheritDoc}. */
-    //	public void setSystemOutput(String out)
-    //	{
-    //		formatOutput(SYSTEM_OUT, out);
-    //	}
-    //
-    //	/** {@inheritDoc}. */
-    //	public void setSystemError(String out)
-    //	{
-    //		formatOutput(SYSTEM_ERR, out);
-    //	}
-    //
-    //	private void formatOutput(String type, String output)
-    //	{
-    //		Element nested = doc.createElement(type);
-    //		rootElement.appendChild(nested);
-    //		nested.appendChild(doc.createCDATASection(output));
-    //	}
+    /** {@inheritDoc}. */
+    fun setSystemOutput(out_:String)
+    {
+        formatOutput(SYSTEM_OUT, out_);
+        systemOutList.clear()
+    }
+
+    /** {@inheritDoc}. */
+    fun setSystemError(out_:String)
+    {
+        formatOutput(SYSTEM_ERR, out_);
+    }
+
+    private fun formatOutput(type:String,output:String)
+    {
+        val nested:Element = m_doc!!.createElement(type);
+        m_rootElement!!.appendChild(nested);
+        nested.appendChild(m_doc!!.createCDATASection(output));
+    }
+
+    var systemOutList:MutableList<String> = mutableListOf()
+    fun appendSystemOut(line: String) {
+        systemOutList.add(line);
+    }
+//    fun clearSystemOut(line: String) {
+//        systemOutList.clear()
+//    }
+
     companion object {
         private const val ONE_SECOND = 1000.0
         // XML constants
@@ -389,6 +403,8 @@ class AntXmlRunListener(cbPrint:(line:String)->Unit, private val props: Properti
         private const val PROPERTY = "property"
         private const val ATTR_VALUE = "value"
 
+        private const val SYSTEM_OUT = "system-out"
+        private const val SYSTEM_ERR = "system-err"
 
         /**
          * Convenient method to retrieve the full stacktrace from a given exception.
