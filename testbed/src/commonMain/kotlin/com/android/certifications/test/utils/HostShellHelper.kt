@@ -1,26 +1,75 @@
 package com.android.certifications.test.utils
 
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.OutputStreamWriter
-import java.io.PrintWriter
-import java.io.Writer
+import logging
+import java.util.concurrent.TimeUnit
+//https://stackoverflow.com/questions/57123836/kotlin-native-execute-command-and-get-the-output
+//https://github.com/hoffipublic/multiplatform_cli/blob/master/lib/src/jvmMain/kotlin/com/hoffi/mppcli/lib/common/io/mpp/Process.kt
 
 class HostShellHelper {
     companion object {
+
+
+        fun executeCommand(
+            command: String,
+            teeStdout: Boolean=true,
+            echoCmdToErr: Boolean=true
+        ): Pair<Int,String> {
+            if (echoCmdToErr) logging("$command")
+            val outputLines = mutableListOf<String>()
+            var ret:String = ""
+            runCatching {
+                val process = ProcessBuilder("/bin/bash", "-c", command)
+                    //.directory(workingDir)
+                    .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                    .start()
+                val bufferedReader = process.inputStream.bufferedReader()
+                var line= bufferedReader.readLine()
+                while (line != null) {
+                    if (teeStdout) {
+                        //Console.echo(line)
+                        logging(line)
+                    }
+                    outputLines.add(line)
+                    line = bufferedReader.readLine()
+                }
+                process.apply { waitFor(5L, TimeUnit.SECONDS) }
+                ret = outputLines.joinToString(PlatformUtils.LINE_SEPARATOR)
+                return Pair(process.exitValue(), ret)
+            }.onFailure { it.printStackTrace() ; return Pair(126, ret) }
+            return Pair(126, ret)
+        }
+
+        /*private fun readOutputAndWait(p:Process):String{
+            val ins: InputStream = p.getInputStream() //標準出力
+            val br = BufferedReader(InputStreamReader(ins))
+            val sb = StringBuilder()
+            try {
+                while (true) {
+                    val line = br.readLine() ?: break
+                    sb.append(line);sb.append(PlatformUtils.LINE_SEPARATOR)
+                    println(line)
+                }
+            } finally {
+                br.close()
+            }
+
+
+            return sb.toString();
+            //it.stringList.joinToString(PlatformUtils.LINE_SEPARATOR)
+        }
+
         @Throws(IOException::class)
-        fun executeCommands(script: String):Int {
+        fun executeCommands(script: String):Pair<Int,String> {
             val tempScript = createTempScript(script)
             try {
-                val pb = ProcessBuilder("bash", tempScript.toString())
+                val pb = ProcessBuilder(PlatformUtils.SHELLCMD, tempScript.toString())
                 pb.inheritIO()
                 val process = pb.start()
-                process.waitFor()
-                return process.exitValue()
-
+                val result = readOutputAndWait(process);
+                process.waitFor(10,TimeUnit.SECONDS)
+                return Pair(process.exitValue(),result)
             } finally {
-                tempScript.delete()
+                //tempScript.delete()
             }
         }
 
@@ -32,11 +81,11 @@ class HostShellHelper {
                     tempScript
                 )
             )
-            val printWriter: PrintWriter = PrintWriter(streamWriter)
-            printWriter.println("#!/bin/bash")
+            val printWriter = PrintWriter(streamWriter)
+            printWriter.println(PlatformUtils.SHELLCMDPREFIX)
             printWriter.println(script)
             printWriter.close()
             return tempScript
-        }
+        }*/
     }
 }

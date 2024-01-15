@@ -3,7 +3,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
-
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -55,7 +54,6 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.android.certifications.junit.JUnitTestRunner
-import com.android.certifications.junit.UnitTestingTextListener
 import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.SFR
@@ -64,11 +62,7 @@ import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.exception.RequestRejectedException
 import com.malinskiy.adam.interactor.StartAdbInteractor
-import com.malinskiy.adam.request.adbd.RestartAdbdRequest
-import com.malinskiy.adam.request.adbd.RootAdbdMode
 import com.malinskiy.adam.request.device.ListDevicesRequest
-import com.malinskiy.adam.request.misc.GetAdbServerVersionRequest
-import com.malinskiy.adam.request.prop.GetSinglePropRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
@@ -80,9 +74,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.lang.RuntimeException
 import java.nio.file.Paths
-import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Properties
@@ -113,7 +105,7 @@ data class TestCase(
 
 val testPackage = "com.android.certifications.test"
 val testCases = listOf(
-    TestCase("OutputTest"),
+    /*TestCase("OutputTest"),*/
     TestCase("FDP_ACF_EXT"),
     TestCase("FPR_PSE1"),
     TestCase("FDP_ACC1"),

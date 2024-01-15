@@ -1,6 +1,7 @@
 package com.android.certifications.test
 
 import Platform
+import com.android.certifications.test.utils.HostShellHelper
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.output_path
 import com.android.certifications.test.utils.resource_path
@@ -36,6 +37,16 @@ class OutputTest {
             logging(resource_path())
             logging(output_path())
 
+            var ret = HostShellHelper.executeCommand("echo hello")
+            logging(">"+ret.toString())
+            //windows where.exe
+            ret = HostShellHelper.executeCommand("which adb")
+            logging(">"+ret.toString())
+            ret = HostShellHelper.executeCommand("which aaa")
+            logging(">"+ret.toString())
+
+            //Thread.sleep(1000)
+
             //val databasePath =
             val resourcesDir = File(System.getProperty("compose.application.resources.dir"))
             //working directory
@@ -43,11 +54,7 @@ class OutputTest {
             logging("Working dir = $workingpath");
             logging(resourcesDir.resolve("common/file_common.txt").readText())
             logging(System.getProperty("compose.application.resources.dir"));
-            logging(Platform().platform)
-            /*val properites = System.getProperties()
-            properites.entries.forEach{
-                logging("${it.key}=${it.value}")
-            }*/
+            logging(Platform().platform+"....")
 
         }
         logging("ClassName"+this.javaClass.canonicalName);
