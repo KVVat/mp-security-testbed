@@ -51,12 +51,15 @@ kotlin {
 // https://youtrack.jetbrains.com/issue/KT-24463
 tasks.register<Copy>("copyResources"){
     dependsOn("createDistributable")
+    dependsOn("packageMsi")
     //println("copyResourcs run")
     from("build/processedResources/jvm/main"){
     }
     into("build/classes/kotlin/jvm/main")
     into("build/compose/tmp/prepareAppResources")
-
+}
+tasks.withType<ProcessResources> {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 tasks.named("jvmMainClasses"){
     //shouldRunAfter("compileKotlinJvm")
