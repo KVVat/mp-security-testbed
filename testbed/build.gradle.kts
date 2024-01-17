@@ -33,7 +33,8 @@ kotlin {
 
                 implementation("com.darkrockstudios:mpfilepicker:3.1.0")
                 implementation("com.russhwolf:multiplatform-settings:1.1.1")
-
+                implementation ("jaxen:jaxen:1.1.6")
+                implementation ("org.dom4j:dom4j:2.1.1")
                 //Settings Library
                 implementation("com.russhwolf:multiplatform-settings:1.1.1")
                 //implementation("com.malinskiy.adam:android-junit4:0.5.0")

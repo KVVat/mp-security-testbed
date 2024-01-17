@@ -111,6 +111,7 @@ val testCases = listOf(
     TestCase("FDP_ACC1"),
     TestCase("KernelAcvpTest"),
     TestCase("FCS_CKH_EXT1"),
+    TestCase("FTP_ITC_EXT1"),
     )
 
 
