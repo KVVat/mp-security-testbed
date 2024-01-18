@@ -4,6 +4,7 @@ import com.android.certifications.test.rule.AdbDeviceRule
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import kotlinx.coroutines.runBlocking
+import logging
 import org.junit.Assert
 import java.io.File
 import java.io.IOException
@@ -21,7 +22,7 @@ class PCapHelper {
    // val OUT_PATH  = "../results/capture/"
     fun copyPcapToOutPath(pcap:Path,testlabel:String):Path
     {
-        val outdir = File(Paths.get(output_path(),"pcap","capture").toUri())
+        val outdir = File(Paths.get(output_path(),"tlscapture").toUri())
         if(!outdir.exists()){
             outdir.mkdir()
         } else if(!outdir.isDirectory){
@@ -29,7 +30,7 @@ class PCapHelper {
             outdir.mkdir()
         }
         val tstmp = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(LocalDateTime.now())
-        val to = Paths.get(output_path(),"${tstmp}-${testlabel}.pcap")
+        val to = Paths.get(outdir.path,"${tstmp}-${testlabel}.pcap")
         try {
             Files.copy(pcap, to)
         } catch (e: IOException) {
@@ -40,30 +41,31 @@ class PCapHelper {
 
     fun tlsCapturePacket(adb:AdbDeviceRule,testlabel:String,testurl:String):Pair<String, Path> {
 
-        var pcap: Path
-        var http_resp:String
+        var pcap: Path = Paths.get("")
+        var http_resp:String=""
 
         runBlocking {
             //prerequite module check
             var cmdret = HostShellHelper.executeCommand("compgen -ac tshark")
-            if(!cmdret.equals(0)){
-                println("tshark is not found. please install the command to the environment")
+            if(!cmdret.first.equals(0)){
+                logging("tshark is not found. please install the command to the environment")
                 Assert.assertTrue(false)
-                //exitProcess(1)
+                return@runBlocking
+            //exitProcess(1)
             }
 
             val serial = adb.deviceSerial
             val client: AndroidDebugBridgeClient = adb.adb;
 
             //Install prerequisite modules
-            val pcap_apk=
+            /*val pcap_apk=
                 File(Paths.get("src", "test", "resources", "pcapdroid-debug.apk").toUri())
             var ret = AdamUtils.InstallApk(pcap_apk, true,adb)
             Assert.assertTrue(ret.startsWith("Success"))
             val browser_apk=
                 File(Paths.get("src", "test", "resources", "openurl-debug.apk").toUri())
             ret = AdamUtils.InstallApk(browser_apk, false,adb)
-            Assert.assertTrue(ret.startsWith("Success"))
+            Assert.assertTrue(ret.startsWith("Success"))*/
 
             val response =
                 client.execute(
@@ -74,7 +76,7 @@ class PCapHelper {
                             " -e pcap_name traffic.pcap"
                 ),serial)
 
-            println(response)
+            logging(response.output)
 
             //Launch packet capture software with uiautomator session
             //if it's first time we should say 'OK' to 3 dialogues,
@@ -82,17 +84,17 @@ class PCapHelper {
             Thread.sleep(1000)
             UIAutomatorSession(adb,PKG_PCAPDROID).run {
                 val label0= "${PKG_PCAPDROID}:id/allow_btn"
-                println("pcapdroid ui check:"+exists(label0))
+                logging("pcapdroid ui check:"+exists(label0))
                 if(exists(label0)){ tap(label0) } else return@run
                 Thread.sleep(2000)
                 UIAutomatorSession(adb,PKG_PCAPDROID).run level2@{
                     val label1= "android:id/button1"
-                    //println(exists(label1))
+                    //logging(exists(label1))
                     if(exists(label1)){ tap(label1) } else return@level2
                     Thread.sleep(2000)
                     UIAutomatorSession(adb,"com.android.vpndialogs").run level3@{
                         val label2= "android:id/button1"
-                        //println(exists(label2))
+                        //logging(exists(label2))
                         if(exists(label2)){ tap(label2) } else return@level3
                     }
                 }
@@ -110,11 +112,11 @@ class PCapHelper {
                 //AdamUtils.waitLogcatLine(100,"worker@return",adb)
                 AdamUtils.waitLogcatLineByTag(100,"worker@return",adb)
             if(!res.isEmpty()){
-                println("worker@return=>"+res.first().text)
+                logging("worker@return=>"+res.first().text)
                 //evaluate the return value
             } else {
                 //res == null break *panic*
-                println("we can't grab the return value from worker.")
+                logging("we can't grab the return value from worker.")
                 Assert.assertTrue(false)
             }
             //return value
@@ -142,7 +144,7 @@ tshark -r ${pcap.toAbsolutePath()} -o tls.debug_file:ssldebug.log \
 """
             cmdret = HostShellHelper.executeCommand(cmd)
 
-            println(cmdret)
+            logging(cmdret.second)
             Thread.sleep(1000)
             //return Pair<String,Path>(res!!.text,pcap)
         }

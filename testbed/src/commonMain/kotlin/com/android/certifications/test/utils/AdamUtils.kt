@@ -174,6 +174,7 @@ class AdamUtils {
         stdio = client.execute(InstallRemotePackageRequest(
           "/data/local/tmp/$fileName", reinstall, listOf("-g")), serial = adb.deviceSerial)
       }
+      logging(stdio.output)
       return stdio.output
     }
   }

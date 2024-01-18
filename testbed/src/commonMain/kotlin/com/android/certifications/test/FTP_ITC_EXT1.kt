@@ -71,8 +71,8 @@ class FTP_ITC_EXT1 {
     @After
     fun teardown() {
         runBlocking {
-            AdamUtils.RemoveApk(file_pcapdroid,adb)
-            AdamUtils.RemoveApk(file_module,adb)
+            //AdamUtils.RemoveApk(file_pcapdroid,adb)
+            //AdamUtils.RemoveApk(file_module,adb)
         }
     }
     fun isLockScreenEnbled():Boolean{
@@ -87,15 +87,16 @@ class FTP_ITC_EXT1 {
             if(response != null &&
                 response.output.contains("mDreamingLockscreen=true"))
                 locked=true
-            println(response)
+            logging(response.output)
         }
         return locked
     }
 
-    var PKG_PCAPDROID ="com.emanuelef.remote_capture"
-    var MDL_PCAPDROID ="pcapdroid.apk"
+    //private var PKG_PCAPDROID ="com.emanuelef.remote_capture"
+    //private val PKG_TEST = "com.example.openurl"
+    private var MDL_PCAPDROID ="pcapdroid-debug.apk"
     private val MDL_TEST = "openurl-debug.apk"
-    private val PKG_TEST = "com.example.openurl"
+
 
     private val file_module: File =
         File(Paths.get(resource_path(),"FTP_ITC_EXT1",MDL_TEST).toUri())
@@ -120,7 +121,7 @@ class FTP_ITC_EXT1 {
     fun testNormalHost() {
          runBlocking{
             if(isLockScreenEnbled()){
-                println("lock screen is enabled. please unlock")
+                logging("lock screen is enabled. please unlock")
                 assert(false)
             }
 
@@ -135,6 +136,47 @@ class FTP_ITC_EXT1 {
             anaylzeCertainPdml(Paths.get(pdml_path+".xml"),hostName)
         }
     }
+
+    @Test
+    fun testExpiredHost() {
+        runBlocking{
+            if(isLockScreenEnbled()){
+                logging("lock screen is enabled. please unlock")
+                assert(false)
+            }
+
+            val hostName = "https://expired.badssl.com/"
+            val resp:Pair<String, Path> =
+                PCapHelper.tlsCapturePacket(adb,"expired",hostName)
+            val httpret:String = resp.first
+            errs.checkThat(httpret, IsEqual( "200"))
+            logging(httpret)
+
+            val pdml_path  = resp.second.absolutePathString()
+            anaylzeCertainPdml(Paths.get(pdml_path+".xml"),hostName)
+        }
+    }
+
+    @Test
+    fun testInvalidHost() {
+        runBlocking{
+            if(isLockScreenEnbled()){
+                logging("lock screen is enabled. please unlock")
+                assert(false)
+            }
+
+            val hostName = "https://wrong.host.badssl.com/"
+            val resp:Pair<String, Path> =
+                PCapHelper.tlsCapturePacket(adb,"invalid",hostName)
+            val httpret:String = resp.first
+            errs.checkThat(httpret, IsEqual( "200"))
+            logging(httpret)
+
+            val pdml_path  = resp.second.absolutePathString()
+            anaylzeCertainPdml(Paths.get(pdml_path+".xml"),hostName)
+        }
+    }
+
 
 
     //Helper fucntions for analyzing pdml files
@@ -175,11 +217,12 @@ class FTP_ITC_EXT1 {
         //Start DNS record check
         //determine entry point of the analyze with dnspackets
         //we should verify the tlspackets after dns query to the target host...
+        logging("checking packet record ...")
         val dnspkts = document.selectNodes("/pdml/packet/proto[@name='dns']")
         if(dnspkts.size == 0) {
             //there are no dns records...exit
             //errs.checkThat(a.Msg("Need at least one dns packet in cocument"), dnspkts.size,)
-            println("need at least one dns packet to continue")
+            logging("need at least one dns packet to continue")
             Assert.assertTrue(false)
             return
         }
@@ -189,7 +232,7 @@ class FTP_ITC_EXT1 {
             val num = pkt.parent.packetSerial()
             val queryname = _show(pkt.selectChild("dns.qry.name"))
             if(targetHost.contains(queryname)){
-                println("Target : $targetHost contains $queryname. we'll examine after this($num) packet.")
+                logging("Target : $targetHost contains $queryname. we'll examine after this($num) packet.")
                 readAfter = num
                 break
             }
@@ -199,7 +242,7 @@ class FTP_ITC_EXT1 {
         val nodes = document.selectNodes("/pdml/packet/proto[@name='tls']")
         if(nodes.size == 0) {
             //there are no tls records...exit
-            println("need at least one tls packet to continue")
+            logging("need at least one tls packet to continue")
             Assert.assertTrue(false)
             return
         }
@@ -213,20 +256,20 @@ class FTP_ITC_EXT1 {
             val records = tlsp.selectChildren("tls.record")//multiple tls.records can be exist in a proto tag
             val serial = tlsp.parent.packetSerial()
             if(serial<readAfter){
-                //println("Packet Number:$serial < $readAfter.")
+                //logging("Packet Number:$serial < $readAfter.")
                 continue
             } else {
-                println("Packet Number=$serial")
+                logging("Packet Number=$serial")
             }
             if(records !== null) {
                 var i=1
                 for (record in records) {
-                    println(record.attrib()+"[$serial-$i]")
-                    println("\t" + _showname(record.selectChild("tls.record.version")))
-                    println("\t" + _showname(record.selectChild("tls.handshake.type")))
-                    println("\t" + _showname(record.selectChild("tls.record.content_type")))
+                    logging(record.attrib()+"[$serial-$i]")
+                    logging("\t" + _showname(record.selectChild("tls.record.version")))
+                    logging("\t" + _showname(record.selectChild("tls.handshake.type")))
+                    logging("\t" + _showname(record.selectChild("tls.record.content_type")))
                     //tls.record.content_type
-                    //println("\t\t>" + _value(record.selectChild("tls.handshake.type")))
+                    //logging("\t\t>" + _value(record.selectChild("tls.handshake.type")))
                     val hsType = _value(record.selectChild("tls.handshake.type")).toInt(16)
                     val cnType = _value(record.selectChild("tls.record.content_type")).toInt(16)
                     if(hsType>0){
@@ -235,10 +278,10 @@ class FTP_ITC_EXT1 {
                             //test 1: client need to support some certain ciphersuite listed in SFR
                             val ciphers = record.selectChildren("tls.handshake.ciphersuite")
                             if(ciphers !== null){
-                                println("\t\ttest 1:ciphers>")
+                                logging("\t\ttest 1:ciphers>")
                                 val matches:MutableList<String> = mutableListOf()
                                 for(c in ciphers) {
-                                    println("\t\t\t>"+_showname(c))
+                                    logging("\t\t\t>"+_showname(c))
                                     val cipherName = _showname(c)
                                     REQUIRED_CIPHERS_IN_SFR.forEach { it->
                                         if(cipherName.indexOf(it)>=0){
@@ -249,10 +292,10 @@ class FTP_ITC_EXT1 {
                                 //should support one of the ciphersuite listed in SFR:
 
                                 if(matches.size>=1){
-                                    println("supported ciphers in SFR requirement:"+matches.toString())
+                                    logging("supported ciphers in SFR requirement:"+matches.toString())
                                 } else {
                                     //should assert
-                                    // println("found no ciphers which is required to implement.")
+                                    // logging("found no ciphers which is required to implement.")
                                     errs.checkThat(
                                         a.Msg("Found no ciphers which is required to implement.)"),
                                         true, IsEqual(false)
@@ -269,19 +312,19 @@ class FTP_ITC_EXT1 {
                             val tlsversions = record.selectChildren("tls.handshake.extensions.supported_version")
                             if(tlsversions !== null){
                                 //implement TLS v1.2 [7], TLS v1.3 [11] or higher version of TLS;
-                                println("\t\ttest 2:versions>")//0x.0304,0303
+                                logging("\t\ttest 2:versions>")//0x.0304,0303
                                 //var matches:MutableList<String> = mutableListOf()
                                 var supported = false
                                 for(ver in tlsversions) {
                                     val found = _value(ver).toInt(16)
-                                    //println(found)
+                                    //logging(found)
                                     if(found == 0x0304 || found == 0x0303){
                                         supported = true
                                         break
                                     }
                                 }
                                 if(supported){
-                                    println("The client supports tls v1.2 or later")
+                                    logging("The client supports tls v1.2 or later")
                                 } else {
                                     errs.checkThat(
                                         a.Msg("Failure : The client does not support tls v1.2 or later)"),
@@ -302,9 +345,9 @@ class FTP_ITC_EXT1 {
                             val n_ = record.selectChild("x509af.version")
                             if(n_ !== null){
                                 val x509afver = _value(n_).toInt(16)
-                                println("test3 : x509 auth framework version is 0x$x509afver")
+                                logging("test3 : x509 auth framework version is 0x$x509afver")
                                 if(x509afver>=2){
-                                    println("the value indicates version 3 or above ...  okay")
+                                    logging("the value indicates version 3 or above ...  okay")
                                 } else {
                                     //assert
                                     errs.checkThat(
@@ -342,11 +385,11 @@ class FTP_ITC_EXT1 {
                                 val nb = tls_utcdate(_value(nb_.selectChild("x509af.utcTime")))
                                 val na = tls_utcdate(_value(na_.selectChild("x509af.utcTime")))
                                 val now = LocalDateTime.now()
-                                println("test4: Cert Expiration check date should not before:$nb notafter:$na")
+                                logging("test4: Cert Expiration check date should not before:$nb notafter:$na")
                                 if(now.isAfter(na) || now.isBefore(nb)){
                                     certExpire = true//
                                     certProblemFound = true//The value should be set to false until the end of the test
-                                    println("Failure : this cert is expired ")
+                                    logging("Failure : this cert is expired ")
                                 }
                             } else {
                                 errs.checkThat(
@@ -358,7 +401,7 @@ class FTP_ITC_EXT1 {
                     }
 
                     if(cnType == 21 && certExpire == true){ //Alert
-                        println("The cert is expired, but connection is gently canceled. okay")
+                        logging("The cert is expired, but connection is gently canceled. okay")
                         certProblemFound = false
                     }
 
@@ -371,5 +414,6 @@ class FTP_ITC_EXT1 {
                 a.Msg("Failure : there were problem in cert record, but connection was not canceled."),
                 true, IsEqual(false))
         }
+        logging("The test for $targetHost has done ...")
     }
 }
