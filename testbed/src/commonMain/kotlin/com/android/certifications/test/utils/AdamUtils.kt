@@ -10,17 +10,23 @@ import com.malinskiy.adam.request.logcat.LogcatSinceFormat
 import com.malinskiy.adam.request.misc.FetchHostFeaturesRequest
 import com.malinskiy.adam.request.pkg.InstallRemotePackageRequest
 import com.malinskiy.adam.request.prop.GetSinglePropRequest
+import com.malinskiy.adam.request.shell.v2.ChanneledShellCommandRequest
+import com.malinskiy.adam.request.shell.v2.ShellCommandInputChunk
 import com.malinskiy.adam.request.shell.v2.ShellCommandRequest
 import com.malinskiy.adam.request.shell.v2.ShellCommandResult
 import com.malinskiy.adam.request.sync.v2.PullFileRequest
 import com.malinskiy.adam.request.sync.v2.PushFileRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logging
 import java.io.File
+import java.nio.charset.Charset
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
@@ -39,16 +45,49 @@ class AdamUtils {
       logging("Restart adb=>$ret")
       return ret
     }
+
+    fun shellRequestStream(shellCommand:String,adb: AdbDeviceRule){
+      runBlocking {
+        val stdio = Channel<ShellCommandInputChunk>()
+        val receiveChannel = adb.adb.execute(ChanneledShellCommandRequest(shellCommand, stdio), this,
+          adb.deviceSerial)
+        val stdioJob = launch(Dispatchers.IO) {
+          stdio.send(
+            ShellCommandInputChunk(
+              stdin = "".toByteArray(Charsets.UTF_8)
+            )
+          )
+          stdio.send(
+            ShellCommandInputChunk(
+              close = true
+            )
+          )
+        }
+        val stdoutBuilder = StringBuilder()
+        val stderrBuilder = StringBuilder()
+        var exitCode = 1
+        for (i in receiveChannel) {
+          i.stdout?.let { stdoutBuilder.append(String(it, Charsets.UTF_8)) }
+          i.stderr?.let { stderrBuilder.append(String(it, Charsets.UTF_8)) }
+          i.exitCode?.let { exitCode = it }
+          logging(i.stdout?.toString(Charsets.UTF_8)!!)
+        }
+        stdioJob.join()
+        logging("Stream shellCommand done")
+      }
+    }
     fun shellRequest(shellCommand:String,adb: AdbDeviceRule):ShellCommandResult{
       var ret:ShellCommandResult
 
       runBlocking {
+        //logging("Run shell command($shellCommand)")
 
         ret = adb.adb.execute(
           ShellCommandRequest(shellCommand),
           adb.deviceSerial)
+        //logging("exitCode => ${ret.exitCode}")
+        //logging("Output => ${ret.output}")
       }
-      logging("Run shell command(${ret.exitCode}):$shellCommand")
 
       return ret
     }

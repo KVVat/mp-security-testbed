@@ -75,10 +75,10 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "KotlinJvmComposeDesktopApplication"
             packageVersion = "1.0.0"
-            includeAllModules=true
+            //flag=on if release the package
+            //includeAllModules=true
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             outputBaseDir.set(project.buildDir.resolve("output"))
-
         }
     }
 }

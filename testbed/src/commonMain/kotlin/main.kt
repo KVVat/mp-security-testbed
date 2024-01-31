@@ -56,13 +56,22 @@ import androidx.compose.ui.window.rememberWindowState
 import com.android.certifications.junit.JUnitTestRunner
 import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.rule.AdbDeviceRule
+import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.output_path
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
+import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.exception.RequestRejectedException
 import com.malinskiy.adam.interactor.StartAdbInteractor
 import com.malinskiy.adam.request.device.ListDevicesRequest
+import com.malinskiy.adam.request.forwarding.ListPortForwardsRequest
+import com.malinskiy.adam.request.forwarding.LocalTcpPortSpec
+import com.malinskiy.adam.request.forwarding.PortForwardRequest
+import com.malinskiy.adam.request.forwarding.PortForwardingMode
+import com.malinskiy.adam.request.forwarding.PortForwardingRule
+import com.malinskiy.adam.request.forwarding.RemoteTcpPortSpec
+import com.malinskiy.adam.request.reverse.ReversePortForwardRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
@@ -106,6 +115,7 @@ data class TestCase(
 val testPackage = "com.android.certifications.test"
 val testCases = listOf(
     /*TestCase("OutputTest"),*/
+    TestCase("MuttonTest"),
     TestCase("FDP_ACF_EXT"),
     TestCase("FPR_PSE1"),
     TestCase("FDP_ACC1"),
@@ -190,19 +200,22 @@ fun App(settings: Settings) {
     console = remember { LogConsole (flowLogger,coroutineScope,loggerText) }
     var adbIsValid by remember { mutableStateOf(false) }
     lateinit var adb:AdbDeviceRule
+
     suspend fun observeAdb():Boolean{
         try {
-            adb = AdbDeviceRule()
+            //adb = AdbDeviceRule()
             val client = adb.adb
             adb.startAlone()
             while(true){
-                Thread.sleep(1000)
-                if(isTestRunning) continue
-                var initialised = adb.isDeviceInitialised()
+                withContext(Dispatchers.IO) {
+                    Thread.sleep(1000)
+                }
+                if (isTestRunning) continue
+                val initialised = adb.isDeviceInitialised()
                 try {
                     if (initialised) {
                         if (!adbIsValid) {
-                            logging("Device Connected > " + adb.deviceSerial)
+                            logging("Device Connected > ${adb.deviceSerial}/${adb.displayId}")
                             ap =
                                 AdbProps(
                                     adb.osversion,
@@ -215,8 +228,8 @@ fun App(settings: Settings) {
                         //Hopefully finish gently but it raises exception..
                         client.execute(ShellCommandRequest("echo"))
                     }
-                } catch (anyException:Exception) {
-                    if(anyException is RequestRejectedException) {
+                } catch (anyException: Exception) {
+                    if (anyException is RequestRejectedException) {
                         adb.startAlone()
                         continue
                     } else {
@@ -224,11 +237,22 @@ fun App(settings: Settings) {
                     }
                 }
             }
+
         } catch (exception:Exception){
-            logging("Device Disconnected > "+exception.localizedMessage)
-            adbIsValid = false
-            ap= AdbProps("","","","")
+            if(adbIsValid) {
+                logging("Device Disconnected > (" + exception.localizedMessage+") #${exception.javaClass.name}")
+                ap = AdbProps("", "", "", "")
+                adbIsValid = false
+            }
         }
+
+        return true
+    }
+
+    suspend fun runAutomataServer():Boolean{
+        return true
+    }
+    suspend fun stopAutomataServer():Boolean{
         return true
     }
 
@@ -240,10 +264,13 @@ fun App(settings: Settings) {
             //isSettingOpen = false
             flowVisibleDialog.emit(true)
         }
+        adb = AdbDeviceRule()
         //text = String(resource("welcome.txt").readBytes())
         launch {
             withContext(Dispatchers.IO) {
-                while(true){ observeAdb() }
+                while(true){
+                    observeAdb()
+                }
             }
         }
     }
@@ -316,6 +343,7 @@ fun App(settings: Settings) {
                         }
                     }
                     Column(modifier = Modifier.fillMaxSize().background(color = Color.Transparent).padding(10.dp)) {
+                        Row(modifier = Modifier.padding(4.dp)){
                         Button(modifier = Modifier.requiredSize(50.dp)
                             , onClick = {
                                 //isSettingOpen.em = true
@@ -323,13 +351,64 @@ fun App(settings: Settings) {
                                     flowVisibleDialog.emit(true);
                                 }
                             }, content = {
-                                Text("⚙️", fontSize =18.sp)
+                                Text("⚙", fontSize =18.sp)
                             }
                         )
+                        Spacer(Modifier.size(6.dp))
+                        Button(modifier = Modifier.requiredHeight(50.dp), enabled = adbIsValid, colors =
+                            ButtonDefaults.buttonColors(backgroundColor = Color.Green)
+                            , onClick = {
+                                coroutineScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        //automata start processes
+                                        adb = AdbDeviceRule()
+                                        adb.startAlone()
 
+                                        val INSTRUMENT_PACKAGE =
+                                            "com.github.uiautomutton.test/androidx.test.runner.AndroidJUnitRunner"
+
+                                        //Install Packages Here
+
+                                        suspend fun evalPortForward(adb:AdbDeviceRule):Boolean{
+                                            val rules: List<PortForwardingRule> = adb.adb.execute(
+                                                ListPortForwardsRequest(adb.deviceSerial)
+                                            )
+                                            for(r in rules){
+                                                val param = r.localSpec.toSpec()+":"+r.remoteSpec.toSpec();
+                                                if(param.equals("tcp:9008:tcp:9008"))
+                                                    return true
+                                            }
+                                            return false
+                                        }
+                                        //Check PortForward Availavility
+                                        if(!evalPortForward(adb)){
+                                            adb.adb.execute(
+                                                PortForwardRequest(
+                                                    remote = RemoteTcpPortSpec(9008),
+                                                    local= LocalTcpPortSpec(9008),
+                                                    mode = PortForwardingMode.DEFAULT,
+                                                    serial = adb.deviceSerial
+                                                )
+                                            )
+                                            Thread.sleep(500)
+                                            if(!evalPortForward(adb))//If command failed
+                                                return@withContext
+                                        }
+                                        //Check Instrument is already available
+
+                                        //Run instrument process
+                                        AdamUtils.shellRequestStream(
+                                            "am instrument -w $INSTRUMENT_PACKAGE", adb
+                                        )
+                                    }
+                                }
+                            }, content = {
+                                Text("Automata Ready", fontSize =10.sp)
+                            }
+                        )
+                        }
                     }
                 }
-
                 //
                 SelectionContainer {
                     LogText(loggerText)
