@@ -26,3 +26,5 @@ dependencyResolutionManagement {
 }
 include(":testbed")
 include(":lib")
+include(":proto")
+project(":proto").projectDir = file("../MuttonProtos/protos")

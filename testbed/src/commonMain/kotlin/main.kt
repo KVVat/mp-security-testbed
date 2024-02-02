@@ -58,7 +58,9 @@ import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.rule.AdbDeviceRule
 import com.android.certifications.test.utils.AdamUtils
 import com.android.certifications.test.utils.SFR
+import com.android.certifications.test.utils.ShellRequestThread
 import com.android.certifications.test.utils.output_path
+import com.android.certifications.test.utils.resource_path
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
@@ -71,12 +73,14 @@ import com.malinskiy.adam.request.forwarding.PortForwardRequest
 import com.malinskiy.adam.request.forwarding.PortForwardingMode
 import com.malinskiy.adam.request.forwarding.PortForwardingRule
 import com.malinskiy.adam.request.forwarding.RemoteTcpPortSpec
+import com.malinskiy.adam.request.pkg.PmListRequest
 import com.malinskiy.adam.request.reverse.ReversePortForwardRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -165,19 +169,20 @@ data class AdbProps(val osVersion:String, val model:String,val serial:String, va
 @Preview
 fun App(settings: Settings) {
 
-    var sc by remember { mutableStateOf(settings) }
+    val sc by remember { mutableStateOf(settings) }
     var ap by remember { mutableStateOf(AdbProps("","","","")) }
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
     var isTestRunning by remember { mutableStateOf(false) }
+    var isServerRunning by remember { mutableStateOf(false)  }
 
     //Behaviour
     var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
     var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
     var fileHandler:FileHandler? = null;//FileHandler(outputPath, false)
+    val serverShell by remember { mutableStateOf(ShellRequestThread())  }
 
-    var adbProps:AdbProps?=null
 
     fun validateSettings():Boolean{
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
@@ -249,10 +254,86 @@ fun App(settings: Settings) {
         return true
     }
 
-    suspend fun runAutomataServer():Boolean{
-        return true
+
+    suspend fun evalPortForward(adb:AdbDeviceRule):Boolean{
+        val rules: List<PortForwardingRule> = adb.adb.execute(
+            ListPortForwardsRequest(adb.deviceSerial)
+        )
+        for(r in rules){
+            val param = r.localSpec.toSpec()+":"+r.remoteSpec.toSpec();
+            if(param.equals("tcp:9008:tcp:9008"))
+                return true
+        }
+        return false
     }
-    suspend fun stopAutomataServer():Boolean{
+    suspend fun evalPackages(verifies:List<String>,adb:AdbDeviceRule):Boolean{
+        val packages: List<com.malinskiy.adam.request.pkg.Package> = adb.adb.execute(
+            request = PmListRequest(
+                includePath = false
+            ),
+            adb.deviceSerial
+        )
+        var found =0;
+        run loop@{
+            packages.forEach {
+                verifies.forEach { v->
+                    if(it.name.equals(v)){
+                        found++
+                    }
+                }
+                if(found == verifies.size)
+                    return@loop//break
+            }
+        }
+        if(found == verifies.size){
+            logging("found all prerequisite packages")
+            return true
+        } else {
+            logging("some of prerequisite packages not found")
+            return false
+        }
+
+    }
+
+    suspend fun runAutomataServer():Boolean{
+
+        val INSTRUMENT_PACKAGE =
+            "com.github.uiautomutton.test/androidx.test.runner.AndroidJUnitRunner"
+        val file_server: File =
+            File(Paths.get(resource_path(),"muttons","uiserver-release.apk").toUri())
+        val file_instrument: File =
+            File(Paths.get(resource_path(),"muttons","uiserver-release-androidTest.apk").toUri())
+
+        serverShell.setShellCommand("am instrument -w $INSTRUMENT_PACKAGE",adb)
+        if(!serverShell.isInitialized()){
+            logging("Server is not initialized")
+        }
+        //Install Packages Here
+        val packagesFound =
+            evalPackages(listOf("com.github.uiautomutton","com.github.uiautomutton.test"),adb)
+
+        if(!packagesFound){
+            AdamUtils.InstallApk(file_server,true,adb);
+            delay(500)
+            AdamUtils.InstallApk(file_instrument,true,adb);
+            delay(500)
+        }
+        //Check PortForward
+        if(!evalPortForward(adb)){
+            adb.adb.execute(
+                PortForwardRequest(
+                    remote = RemoteTcpPortSpec(9008),
+                    local= LocalTcpPortSpec(9008),
+                    mode = PortForwardingMode.DEFAULT,
+                    serial = adb.deviceSerial
+                )
+            )
+            delay(500)
+
+            if(!evalPortForward(adb))//If command failed
+                return false
+        }
+        serverShell.run()
         return true
     }
 
@@ -274,6 +355,7 @@ fun App(settings: Settings) {
             }
         }
     }
+
 
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
@@ -356,54 +438,29 @@ fun App(settings: Settings) {
                         )
                         Spacer(Modifier.size(6.dp))
                         Button(modifier = Modifier.requiredHeight(50.dp), enabled = adbIsValid, colors =
-                            ButtonDefaults.buttonColors(backgroundColor = Color.Green)
+                            if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
+                                else ButtonDefaults.buttonColors(backgroundColor = Color.White)
                             , onClick = {
                                 coroutineScope.launch {
                                     withContext(Dispatchers.IO) {
                                         //automata start processes
                                         adb = AdbDeviceRule()
                                         adb.startAlone()
+                                        if(serverShell.isInitialized()){
+                                            if(serverShell.isRunning){
+                                                serverShell.interrupt()
 
-                                        val INSTRUMENT_PACKAGE =
-                                            "com.github.uiautomutton.test/androidx.test.runner.AndroidJUnitRunner"
-
-                                        //Install Packages Here
-
-                                        suspend fun evalPortForward(adb:AdbDeviceRule):Boolean{
-                                            val rules: List<PortForwardingRule> = adb.adb.execute(
-                                                ListPortForwardsRequest(adb.deviceSerial)
-                                            )
-                                            for(r in rules){
-                                                val param = r.localSpec.toSpec()+":"+r.remoteSpec.toSpec();
-                                                if(param.equals("tcp:9008:tcp:9008"))
-                                                    return true
-                                            }
-                                            return false
-                                        }
-                                        //Check PortForward Availavility
-                                        if(!evalPortForward(adb)){
-                                            adb.adb.execute(
-                                                PortForwardRequest(
-                                                    remote = RemoteTcpPortSpec(9008),
-                                                    local= LocalTcpPortSpec(9008),
-                                                    mode = PortForwardingMode.DEFAULT,
-                                                    serial = adb.deviceSerial
-                                                )
-                                            )
-                                            Thread.sleep(500)
-                                            if(!evalPortForward(adb))//If command failed
+                                                isServerRunning=false;
                                                 return@withContext
+                                            }
                                         }
-                                        //Check Instrument is already available
-
-                                        //Run instrument process
-                                        AdamUtils.shellRequestStream(
-                                            "am instrument -w $INSTRUMENT_PACKAGE", adb
-                                        )
+                                        isServerRunning=true
+                                        runAutomataServer()
                                     }
                                 }
                             }, content = {
-                                Text("Automata Ready", fontSize =10.sp)
+                                Text(text = if(isServerRunning) "Stop UI Server" else "Start UI Server",
+                                    fontSize =10.sp)
                             }
                         )
                         }
@@ -419,7 +476,6 @@ fun App(settings: Settings) {
             }
         }
     }
-
 
 
 
