@@ -15,7 +15,7 @@ kotlin {
         val commonMain by getting {
             resources.srcDirs("src/commonMain/resources")
             resources.srcDirs.forEach{
-                println(">"+it.absolutePath.toString())
+                //println(">"+it.absolutePath.toString())
             }
             dependencies {
                 implementation(compose.desktop.currentOs)
@@ -76,7 +76,7 @@ compose.desktop {
             packageName = "KotlinJvmComposeDesktopApplication"
             packageVersion = "1.0.0"
             //flag=on if release the package
-            //includeAllModules=true
+            includeAllModules=true
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             outputBaseDir.set(project.buildDir.resolve("output"))
         }

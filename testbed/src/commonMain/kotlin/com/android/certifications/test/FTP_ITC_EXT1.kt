@@ -17,8 +17,10 @@ import org.dom4j.Node
 import org.dom4j.io.SAXReader
 import org.hamcrest.core.IsEqual
 import org.junit.After
+import org.junit.AfterClass
 import org.junit.Assert
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ErrorCollector
@@ -60,14 +62,37 @@ class FTP_ITC_EXT1 {
     //Asset Log
     var a: TestAssertLogger = TestAssertLogger(name)
 
+    private var MDL_PCAPDROID ="pcapdroid-debug.apk"
+    private val MDL_TEST = "openurl-debug.apk"
+
+    //To run this test install wireshark(tshark) from the url below
+    //https://www.wireshark.org/download.html
+    //For windows you need to set path to the tshark executable
+
+    private val file_module: File =
+        File(Paths.get(resource_path(),"FTP_ITC_EXT1",MDL_TEST).toUri())
+    private val file_pcapdroid: File =
+        File(Paths.get(resource_path(),"FTP_ITC_EXT1",MDL_PCAPDROID).toUri())
+    //val RES_PATH  = Paths.get(resource_path(),"kernelacvp").toAbsolutePath().toString(
+
+    companion object {
+        @BeforeClass // add this annotation
+        @JvmStatic
+        fun setupClass() {
+            println("setup_executed")
+            runBlocking {
+                //logging(file_module.absolutePath)
+                //AdamUtils.InstallApk(file_pcapdroid,true,adb);
+                //AdamUtils.InstallApk(file_module,true,adb);
+            }
+        }
+    }
     @Before
     fun setUp()
     {
-        runBlocking {
-            AdamUtils.InstallApk(file_pcapdroid,true,adb);
-            AdamUtils.InstallApk(file_module,true,adb);
-        }
+
     }
+
     @After
     fun teardown() {
         runBlocking {
@@ -84,24 +109,13 @@ class FTP_ITC_EXT1 {
                         "dumpsys window | grep mDreamingLockscreen"
                     ), adb.deviceSerial
                 )
-            if(response != null &&
-                response.output.contains("mDreamingLockscreen=true"))
+            if(response.output.contains("mDreamingLockscreen=true"))
                 locked=true
             logging(response.output)
         }
         return locked
     }
 
-    //private var PKG_PCAPDROID ="com.emanuelef.remote_capture"
-    //private val PKG_TEST = "com.example.openurl"
-    private var MDL_PCAPDROID ="pcapdroid-debug.apk"
-    private val MDL_TEST = "openurl-debug.apk"
-
-
-    private val file_module: File =
-        File(Paths.get(resource_path(),"FTP_ITC_EXT1",MDL_TEST).toUri())
-    private val file_pcapdroid: File =
-        File(Paths.get(resource_path(),"FTP_ITC_EXT1",MDL_PCAPDROID).toUri())
 
 
     val REQUIRED_CIPHERS_IN_SFR = arrayOf(
@@ -124,7 +138,7 @@ class FTP_ITC_EXT1 {
                 logging("lock screen is enabled. please unlock")
                 assert(false)
             }
-
+            logging("test normal host start")
             val hostName = "https://tls-v1-2.badssl.com:1012/"
             val resp:Pair<String, Path> =
                 PCapHelper.tlsCapturePacket(adb,"normal",hostName)

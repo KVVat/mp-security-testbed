@@ -17,8 +17,18 @@ class HostShellHelper {
             if (echoCmdToErr) logging("$command")
             val outputLines = mutableListOf<String>()
             var ret:String = ""
+
+
+            var kShell = "/bin/bash"
+            var kShellOption = "-c"
+
+            if(isWindows()){
+                kShell="cmd.exe"
+                kShellOption = "/c"
+            }
+
             runCatching {
-                val process = ProcessBuilder("/bin/bash", "-c", command)
+                val process = ProcessBuilder(kShell, kShellOption, command)
                     //.directory(workingDir)
                     .redirectOutput(ProcessBuilder.Redirect.PIPE)
                     .start()
@@ -28,12 +38,14 @@ class HostShellHelper {
                     if (teeStdout) {
                         //Console.echo(line)
                         logging(line)
+
                     }
                     outputLines.add(line)
                     line = bufferedReader.readLine()
                 }
                 process.apply { waitFor(5L, TimeUnit.SECONDS) }
                 ret = outputLines.joinToString(PlatformUtils.LINE_SEPARATOR)
+                logging(""+process.exitValue())
                 return Pair(process.exitValue(), ret)
             }.onFailure { it.printStackTrace() ; return Pair(126, ret) }
             return Pair(126, ret)

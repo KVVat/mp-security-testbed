@@ -46,12 +46,17 @@ class PCapHelper {
 
         runBlocking {
             //prerequite module check
-            var cmdret = HostShellHelper.executeCommand("compgen -ac tshark")
+            var kCommand = "compgen -ac tshark"
+            if(isWindows()){
+                HostShellHelper.executeCommand("RefreshEnv.cmd")
+
+                kCommand="where tshark"
+            }
+            var cmdret = HostShellHelper.executeCommand(kCommand)
             if(!cmdret.first.equals(0)){
                 logging("tshark is not found. please install the command to the environment")
                 Assert.assertTrue(false)
                 return@runBlocking
-            //exitProcess(1)
             }
 
             val serial = adb.deviceSerial
@@ -137,11 +142,7 @@ class PCapHelper {
             Thread.sleep(3000)
 
             //convert pcap to pdml file to analyze
-            val cmd="""\
-tshark -r ${pcap.toAbsolutePath()} -o tls.debug_file:ssldebug.log \
--o tls.desegment_ssl_records:TRUE \
--o tls.desegment_ssl_application_data:TRUE -V -T pdml > ${pcap.toAbsolutePath()}.xml
-"""
+            val cmd="""tshark -r ${pcap.toAbsolutePath()} -o tls.debug_file:ssldebug.log -o tls.desegment_ssl_records:TRUE -o tls.desegment_ssl_application_data:TRUE -V -T pdml > ${pcap.toAbsolutePath()}.xml"""
             cmdret = HostShellHelper.executeCommand(cmd)
 
             logging(cmdret.second)

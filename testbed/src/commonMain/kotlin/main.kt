@@ -118,14 +118,13 @@ data class TestCase(
 
 val testPackage = "com.android.certifications.test"
 val testCases = listOf(
-    /*TestCase("OutputTest"),*/
-    TestCase("MuttonTest"),
     TestCase("FDP_ACF_EXT"),
     TestCase("FPR_PSE1"),
     TestCase("FDP_ACC1"),
     TestCase("KernelAcvpTest"),
     TestCase("FCS_CKH_EXT1"),
     TestCase("FTP_ITC_EXT1"),
+    TestCase("MuttonTest"),
     )
 
 

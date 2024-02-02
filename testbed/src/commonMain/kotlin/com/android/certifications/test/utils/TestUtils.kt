@@ -9,3 +9,7 @@ val settings: Settings= PreferencesSettings(Preferences.userRoot())
 
 fun resource_path():String { return settings.getString("PATH_RESOURCE","") }
 fun output_path():String {return settings.getString("PATH_OUTPUT","/tmp/")}
+
+fun isWindows():Boolean {
+    return  (System.getProperty("os.name").lowercase().startsWith("windows"))
+}
