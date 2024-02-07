@@ -24,7 +24,5 @@ dependencyResolutionManagement {
         maven("https://oss.sonatype.org/content/repositories/snapshots/")
     }
 }
-include(":testbed")
-include(":lib")
-include(":proto")
+include(":testbed",":proto")
 project(":proto").projectDir = file("../MuttonProtos/protos")

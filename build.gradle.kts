@@ -8,6 +8,10 @@ buildscript {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         mavenLocal()
     }
+    dependencies {
+        classpath("com.google.protobuf:protobuf-gradle-plugin:0.9.3")
+    }
+
 }
 
 plugins {
@@ -20,3 +24,8 @@ plugins {
     id("com.google.protobuf") version "0.9.3" apply false
     //id("org.jetbrains.kotlin.jvm") apply false
 }
+
+ext["grpcVersion"] = "1.57.2"
+ext["grpcKotlinVersion"] = "1.3.1" // CURRENT_GRPC_KOTLIN_VERSION
+ext["protobufVersion"] = "3.24.1"
+ext["coroutinesVersion"] = "1.7.3"

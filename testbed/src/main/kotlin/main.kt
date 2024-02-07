@@ -181,7 +181,7 @@ fun App(settings: Settings) {
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
     var fileHandler:FileHandler? = null;//FileHandler(outputPath, false)
     val serverShell by remember { mutableStateOf(ShellRequestThread())  }
-
+    val model = remember { RootStore() }
 
     fun validateSettings():Boolean{
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
@@ -462,7 +462,20 @@ fun App(settings: Settings) {
                                     fontSize =10.sp)
                             }
                         )
+                        Spacer(Modifier.size(6.dp))
+                        Button(modifier = Modifier.requiredHeight(50.dp), enabled = isServerRunning, colors =
+                        if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
+                        else ButtonDefaults.buttonColors(backgroundColor = Color.White)
+                            , onClick = {
+                                model.updateUiData()
+                                logging(model.state.dumpText)
+                            },content = {
+                                Text(text = "UI Test",
+                                    fontSize =10.sp)
+                            }
+                        )
                         }
+
                     }
                 }
                 //
