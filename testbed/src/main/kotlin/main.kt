@@ -1,7 +1,5 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,18 +13,14 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
-import androidx.compose.material.Checkbox
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -38,7 +32,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.FontFamily
@@ -56,31 +49,25 @@ import androidx.compose.ui.window.rememberWindowState
 import com.android.certifications.junit.JUnitTestRunner
 import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.rule.AdbDeviceRule
-import com.android.certifications.test.utils.AdamUtils
+import com.android.certifications.test.utils.ADSRPTest
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.ShellRequestThread
+import com.android.certifications.test.utils.UIServerManager
 import com.android.certifications.test.utils.output_path
-import com.android.certifications.test.utils.resource_path
+import com.android.certifications.ui.LabeledCheckBox
+import com.android.certifications.ui.LogConsole
+import com.android.certifications.ui.LogText
+import com.android.certifications.ui.StandardOneButtonDialog
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
-import com.malinskiy.adam.AndroidDebugBridgeClient
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.exception.RequestRejectedException
 import com.malinskiy.adam.interactor.StartAdbInteractor
 import com.malinskiy.adam.request.device.ListDevicesRequest
-import com.malinskiy.adam.request.forwarding.ListPortForwardsRequest
-import com.malinskiy.adam.request.forwarding.LocalTcpPortSpec
-import com.malinskiy.adam.request.forwarding.PortForwardRequest
-import com.malinskiy.adam.request.forwarding.PortForwardingMode
-import com.malinskiy.adam.request.forwarding.PortForwardingRule
-import com.malinskiy.adam.request.forwarding.RemoteTcpPortSpec
-import com.malinskiy.adam.request.pkg.PmListRequest
-import com.malinskiy.adam.request.reverse.ReversePortForwardRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -98,78 +85,43 @@ import java.util.logging.SimpleFormatter
 import java.util.prefs.Preferences
 
 
-data class TestCase(
-    val testClass:String
-){
-    val clazz = Class.forName(testPackage + "." + testClass)
-
-    var sfr =clazz.getAnnotation(SFR::class.java)
-    var title="Title";
-    var description="Dummy";
-
-    init {
-        if(sfr == null){
-            sfr =SFR(testClass,"Dummy Description")
-        }
-        title = sfr.title.trimIndent()
-        description = sfr.description.trimIndent()
-    }
-}
-
-val testPackage = "com.android.certifications.test"
 val testCases = listOf(
-    TestCase("FDP_ACF_EXT"),
-    TestCase("FPR_PSE1"),
-    TestCase("FDP_ACC1"),
-    TestCase("KernelAcvpTest"),
-    TestCase("FCS_CKH_EXT1"),
-    TestCase("FTP_ITC_EXT1"),
-    TestCase("MuttonTest"),
-    )
+    ADSRPTest("FDP_ACF_EXT"),
+    ADSRPTest("FPR_PSE1"),
+    ADSRPTest("FDP_ACC1"),
+    ADSRPTest("KernelAcvpTest"),
+    ADSRPTest("FCS_CKH_EXT1"),
+    ADSRPTest("FTP_ITC_EXT1"),
+    ADSRPTest("MuttonTest"),
+)
 
 
-//static final Logger logger = Logger.getLogger(Logging.class.getName());
-val logger = Logger.getLogger("TestBed");
-//Log Utils which supports to record data in textarea from outside of the compose.
-@Stable
-class LogConsole(val myLogger:MutableStateFlow<String>,
-                  val coroutineScope: CoroutineScope,val loggerText:String,
-                  val textStack:MutableList<String> = mutableListOf()
-){
-    fun clear(){
-        coroutineScope.launch {
-            textStack.clear();
-            myLogger.emit("");
-        }
-    }
-}
-lateinit var console:LogConsole;
+data class AdbProps(val osVersion:String, val model:String,val serial:String, val displayId:String)
+
+
+//val logger = Logger.getLogger("TestBed");
+lateinit var console: LogConsole;
+
 val flowLogger = MutableStateFlow("")
 var antRunner:AntXmlRunListener? = null
 fun logging(line: String){
-   console.coroutineScope.launch {
-       console.textStack.add(line);
-       if(console.textStack.size>500)
-           console.clear()
-       console.myLogger.emit(console.textStack.joinToString("\r\n"));
-       logger.info(line);
-       println(line);
-       antRunner?.appendSystemOut(line)
-       //println(antRunner?.javaClass?.kotlin?.simpleName)
-
-    }
+    console.write(line)
+    antRunner?.appendSystemOut(line)
 }
+
 // manage setting dialogue visibility from outside composable
 val flowVisibleDialog = MutableStateFlow(false)
-data class AdbProps(val osVersion:String, val model:String,val serial:String, val displayId:String)
 
 @OptIn(ExperimentalTextApi::class,ExperimentalMaterialApi::class)
 @Composable
 @Preview
 fun App(settings: Settings) {
 
+    val logger = Logger.getLogger("TestBed")
+
     val sc by remember { mutableStateOf(settings) }
     var ap by remember { mutableStateOf(AdbProps("","","","")) }
+
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
     var isTestRunning by remember { mutableStateOf(false) }
@@ -179,13 +131,15 @@ fun App(settings: Settings) {
     var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
     var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
-    var fileHandler:FileHandler? = null;//FileHandler(outputPath, false)
+
+    var fileHandler:FileHandler? = null
     val serverShell by remember { mutableStateOf(ShellRequestThread())  }
     val model = remember { RootStore() }
 
     fun validateSettings():Boolean{
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
     }
+
     fun updateLogger(){
         if(fileHandler !== null) logger.removeHandler(fileHandler)
         var newfilepath:String
@@ -253,89 +207,6 @@ fun App(settings: Settings) {
         return true
     }
 
-
-    suspend fun evalPortForward(adb:AdbDeviceRule):Boolean{
-        val rules: List<PortForwardingRule> = adb.adb.execute(
-            ListPortForwardsRequest(adb.deviceSerial)
-        )
-        for(r in rules){
-            val param = r.localSpec.toSpec()+":"+r.remoteSpec.toSpec();
-            if(param.equals("tcp:9008:tcp:9008"))
-                return true
-        }
-        return false
-    }
-    suspend fun evalPackages(verifies:List<String>,adb:AdbDeviceRule):Boolean{
-        val packages: List<com.malinskiy.adam.request.pkg.Package> = adb.adb.execute(
-            request = PmListRequest(
-                includePath = false
-            ),
-            adb.deviceSerial
-        )
-        var found =0;
-        run loop@{
-            packages.forEach {
-                verifies.forEach { v->
-                    if(it.name.equals(v)){
-                        found++
-                    }
-                }
-                if(found == verifies.size)
-                    return@loop//break
-            }
-        }
-        if(found == verifies.size){
-            logging("found all prerequisite packages")
-            return true
-        } else {
-            logging("some of prerequisite packages not found")
-            return false
-        }
-
-    }
-
-    suspend fun runAutomataServer():Boolean{
-
-        val INSTRUMENT_PACKAGE =
-            "com.github.uiautomutton.test/androidx.test.runner.AndroidJUnitRunner"
-        val file_server: File =
-            File(Paths.get(resource_path(),"muttons","uiserver-release.apk").toUri())
-        val file_instrument: File =
-            File(Paths.get(resource_path(),"muttons","uiserver-release-androidTest.apk").toUri())
-
-        serverShell.setShellCommand("am instrument -w $INSTRUMENT_PACKAGE",adb)
-        if(!serverShell.isInitialized()){
-            logging("Server is not initialized")
-        }
-        //Install Packages Here
-        val packagesFound =
-            evalPackages(listOf("com.github.uiautomutton","com.github.uiautomutton.test"),adb)
-
-        if(!packagesFound){
-            AdamUtils.InstallApk(file_server,true,adb);
-            delay(500)
-            AdamUtils.InstallApk(file_instrument,true,adb);
-            delay(500)
-        }
-        //Check PortForward
-        if(!evalPortForward(adb)){
-            adb.adb.execute(
-                PortForwardRequest(
-                    remote = RemoteTcpPortSpec(9008),
-                    local= LocalTcpPortSpec(9008),
-                    mode = PortForwardingMode.DEFAULT,
-                    serial = adb.deviceSerial
-                )
-            )
-            delay(500)
-
-            if(!evalPortForward(adb))//If command failed
-                return false
-        }
-        serverShell.run()
-        return true
-    }
-
     //Launch Event
     LaunchedEffect(Unit) {
         updateLogger()
@@ -377,8 +248,7 @@ fun App(settings: Settings) {
                                     console.clear()
                                     logging("[[${it.title}]]")
 
-                                    val clazz = Class.forName(testPackage + "." + it.testClass)
-                                    var sfr =clazz.getAnnotation(SFR::class.java)
+                                    var sfr = it.clazz.getAnnotation(SFR::class.java)
                                     if(sfr == null){
                                         sfr = SFR("title","description","shortname")
                                     }
@@ -392,6 +262,7 @@ fun App(settings: Settings) {
                                       testProps.setProperty("system", ap.displayId)
                                       testProps.setProperty("signature", ap.serial)
                                     }
+                                    //
                                     //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
                                     antRunner =  AntXmlRunListener(::logging, testProps) {
                                         isTestRunning = false;
@@ -402,8 +273,7 @@ fun App(settings: Settings) {
                                         Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
                                     )
 
-                                    val runner = JUnitTestRunner(arrayOf(clazz),antRunner)
-
+                                    val runner = JUnitTestRunner(arrayOf(it.clazz),antRunner)
                                     runner.start()
                                 },
                             ) {
@@ -448,13 +318,12 @@ fun App(settings: Settings) {
                                         if(serverShell.isInitialized()){
                                             if(serverShell.isRunning){
                                                 serverShell.interrupt()
-
                                                 isServerRunning=false;
                                                 return@withContext
                                             }
                                         }
                                         isServerRunning=true
-                                        runAutomataServer()
+                                        UIServerManager.runAutomataServer(serverShell,adb)
                                     }
                                 }
                             }, content = {
@@ -475,7 +344,6 @@ fun App(settings: Settings) {
                             }
                         )
                         }
-
                     }
                 }
                 //
@@ -489,11 +357,8 @@ fun App(settings: Settings) {
         }
     }
 
-
-
     if(isSettingOpen) {
         // Path Setting Dialogue Implementation
-
 
         var dlgmessage by remember { mutableStateOf("") }
         fun onSettingDialogClose() {
@@ -555,7 +420,7 @@ fun App(settings: Settings) {
                         )
                     }
                     //
-                    LabelledCheckBox(checked = useEmbedResource, onCheckedChange = {
+                    LabeledCheckBox(checked = useEmbedResource, onCheckedChange = {
                         useEmbedResource=it
                         if(it){
                             resourcePath = System.getProperty("compose.application.resources.dir")
@@ -588,91 +453,11 @@ fun App(settings: Settings) {
 
 
 
-@Composable
-fun LabelledCheckBox(
-    checked: Boolean,
-    onCheckedChange: ((Boolean) -> Unit),
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .clickable(
-                indication = rememberRipple(color = MaterialTheme.colors.primary),
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = { onCheckedChange(!checked) }
-            )
-            .requiredHeight(ButtonDefaults.MinHeight)
-            .padding(4.dp)
-    ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = null
-        )
-
-        Spacer(Modifier.size(6.dp))
-
-        Text(
-            text = label,
-        )
-    }
-}
-@Composable
-fun StandardOneButtonDialog(title:String="Title",
-                          button1Text:String="Apply",
-                          onCloseRequest:()->Unit,
-                          content: @Composable () -> Unit){
-    Card {
-        Column(modifier = Modifier.background(Color.White)) {
-            Row(Modifier.background(Color.White).padding(10.dp)) {
-                Text(
-                    title, color = Color.Black,
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold
-                )
-            }
-            Row(modifier = Modifier.fillMaxWidth().padding(start=10.dp, end = 10.dp, bottom = 10.dp)) {
-                content()
-            }
-            Row(modifier = Modifier.align(Alignment.End).padding(10.dp)) {
-                Button(onClick = {
-                    onCloseRequest()
-                }) {
-                    Text(button1Text)
-                }
-            }
-        }
-    }
-}
-@Composable
-fun LogText(text: String) {
-
-    val logState = rememberScrollState(0)
-
-    LaunchedEffect(text) {
-        logState.animateScrollTo(logState.maxValue)
-    }
-
-    //Can change colors each lines?
-    //https://stackoverflow.com/questions/72832802/how-to-show-multiple-color-text-in-same-text-view-with-jetpack-compose
-
-    Text(
-        text = text, color = Color.Green, fontFamily = FontFamily.Monospace,
-        lineHeight = 20.sp, fontSize = 12.sp,
-        modifier = Modifier.fillMaxWidth(fraction = 1.0f)
-            .fillMaxHeight().background(Color.Black).padding(12.dp)
-            .verticalScroll(logState)
-    )
-}
-
 
 
 
 
 fun main() = application {
-
-    //val isDialogOpen by flowSettingDialogOpen.collectAsState(false)
 
     val state = rememberWindowState(
         position = WindowPosition(Alignment.Center), size = DpSize(1024.dp, 600.dp)
