@@ -137,6 +137,8 @@ fun App(settings: Settings) {
     val model = remember { RootStore() }
 
     fun validateSettings():Boolean{
+        logging("Validating settings. Resource:"+File(resourcePath).isDirectory+" Output:"+File(outputPath).isDirectory)
+
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
     }
 
@@ -373,9 +375,6 @@ fun App(settings: Settings) {
                     settings.putString("PATH_OUTPUT",outputPath)
                     settings.putBoolean("USE_EMBED_RES",useEmbedResource)
                 }
-
-
-
             } else {
                 dlgmessage = "⚠️Need to set existent path."
             }
