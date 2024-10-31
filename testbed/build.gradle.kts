@@ -50,6 +50,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 // Workaround for MPP plugin bug that doesn't put resources in classpath
@@ -78,8 +80,8 @@ compose.desktop {
         mainClass = "MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "KotlinJvmComposeDesktopApplication"
-            packageVersion = "1.0.0"
+            packageName = "TestBed"
+            packageVersion = "1.0.1"
             //flag=on if release the package
             includeAllModules=true
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
