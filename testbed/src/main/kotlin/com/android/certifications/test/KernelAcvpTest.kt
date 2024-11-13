@@ -281,12 +281,12 @@ class KernelAcvpTest {
             val line:String
             errs.checkThat(a.Msg("Execute acvptool $fname"),sr.exitCode, IsEqual(0))
             if(sr.exitCode!=0) {
-                line = "\""+dateFormat.format(Date())+" *** processing $fname ... failure ***\""+sr.toString()
+                line = "\""+dateFormat.format(Date())+" *** processing $fname ... failure ***"
             } else {
-                line = "\""+dateFormat.format(Date())+" *** processing $fname ... ok ***\""+sr.toString()
+                line = "\""+dateFormat.format(Date())+" *** processing $fname ... ok ***"
             }
-
-            AdamUtils.shellRequest("cd /data/local/tmp/;echo $line >> acvptest.log",adb)
+            logging(line)
+            //AdamUtils.shellRequest("cd /data/local/tmp/;echo $line >> acvptest.log",adb)
         }
         AdamUtils.shellRequest("cd /data/local/tmp/;tar -zcvf actual.tar.gz actual",adb)
         //Pull worklog, actual, diff file into results dir from device
