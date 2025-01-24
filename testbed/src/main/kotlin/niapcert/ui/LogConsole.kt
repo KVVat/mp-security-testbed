@@ -1,4 +1,4 @@
-package com.android.certifications.ui
+package niapcert.ui
 
 import androidx.compose.runtime.Stable
 import kotlinx.coroutines.CoroutineScope
@@ -7,7 +7,7 @@ import kotlinx.coroutines.launch
 
 @Stable
 class LogConsole(val myLogger: MutableStateFlow<String>,
-                 val coroutineScope: CoroutineScope, val loggerText:String,
+                 val coroutineScope: CoroutineScope,
                  val textStack:MutableList<String> = mutableListOf()
 ){
     fun clear(){

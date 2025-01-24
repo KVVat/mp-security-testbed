@@ -1,4 +1,4 @@
-package grpc
+package niapcert.grpc
 
 import com.github.uiautomutton.BoundRect
 import com.github.uiautomutton.Position

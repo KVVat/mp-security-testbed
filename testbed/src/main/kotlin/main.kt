@@ -23,7 +23,6 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +44,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.certifications.junit.JUnitTestRunner
 import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.rule.AdbDeviceRule
@@ -54,10 +55,10 @@ import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.ShellRequestThread
 import com.android.certifications.test.utils.UIServerManager
 import com.android.certifications.test.utils.output_path
-import com.android.certifications.ui.LabeledCheckBox
-import com.android.certifications.ui.LogConsole
-import com.android.certifications.ui.LogText
-import com.android.certifications.ui.StandardOneButtonDialog
+import niapcert.ui.LabeledCheckBox
+import niapcert.ui.LogConsole
+import niapcert.ui.LogText
+import niapcert.ui.StandardOneButtonDialog
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import com.malinskiy.adam.AndroidDebugBridgeClientFactory
 import com.malinskiy.adam.exception.RequestRejectedException
@@ -66,12 +67,14 @@ import com.malinskiy.adam.request.device.ListDevicesRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import niapcert.ui.SidePanel
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Paths
@@ -84,26 +87,19 @@ import java.util.logging.Logger
 import java.util.logging.SimpleFormatter
 import java.util.prefs.Preferences
 
+//import androidx.lifecycle.ViewModel
+//import androidx.lifecycle.viewmodel.compose.viewModel
 
-val testCases = listOf(
-    ADSRPTest("FDP_ACF_EXT"),
-    ADSRPTest("FPR_PSE1"),
-    ADSRPTest("FDP_ACC1"),
-    ADSRPTest("KernelAcvpTest"),
-    ADSRPTest("FCS_CKH_EXT1"),
-    ADSRPTest("FTP_ITC_EXT1"),
-    ADSRPTest("MuttonTest"),
-)
 
 
 data class AdbProps(val osVersion:String, val model:String,val serial:String, val displayId:String)
-
 
 //val logger = Logger.getLogger("TestBed");
 lateinit var console: LogConsole;
 
 val flowLogger = MutableStateFlow("")
 var antRunner:AntXmlRunListener? = null
+
 fun logging(line: String){
     console.write(line)
     antRunner?.appendSystemOut(line)
@@ -112,29 +108,85 @@ fun logging(line: String){
 // manage setting dialogue visibility from outside composable
 val flowVisibleDialog = MutableStateFlow(false)
 
-@OptIn(ExperimentalTextApi::class,ExperimentalMaterialApi::class)
+class TestBedLogger(logger_:Logger){
+    var fileHandler:FileHandler? = null
+    val logger = logger_
+
+    fun updateLogger(logoutPath:String){
+        if(fileHandler !== null) logger.removeHandler(fileHandler)
+        val newFilePath:String
+                = Paths.get(logoutPath,"testbed.log").toAbsolutePath().toString();
+        logging(newFilePath);
+        fileHandler =
+            FileHandler(newFilePath, false)
+
+        fileHandler!!.formatter = SimpleFormatter()
+        logger.addHandler(fileHandler)
+        logger.level = Level.FINE
+    }
+}
+
+/*val testCases = listOf(
+    ADSRPTest("FDP_ACF_EXT"),
+    ADSRPTest("FPR_PSE1"),
+    ADSRPTest("FDP_ACC1"),
+    ADSRPTest("KernelAcvpTest"),
+    ADSRPTest("FCS_CKH_EXT1"),
+    ADSRPTest("FTP_ITC_EXT1"),
+    ADSRPTest("MuttonTest"),
+)*/
+
+data class SidePanelUiState(
+    val testCases: List<ADSRPTest> = listOf(
+        ADSRPTest("FDP_ACF_EXT"),
+        ADSRPTest("FPR_PSE1"),
+        ADSRPTest("FDP_ACC1"),
+        ADSRPTest("KernelAcvpTest"),
+        ADSRPTest("FCS_CKH_EXT1"),
+        ADSRPTest("FTP_ITC_EXT1"),
+        ADSRPTest("MuttonTest"),
+    ),
+    var isRunning: Boolean = false
+)
+
+class AppViewModel: ViewModel(){
+    val _uiState = MutableStateFlow(SidePanelUiState())
+    val uiState = _uiState.asStateFlow()
+
+    fun toggleIsRunning(b:Boolean) = viewModelScope.launch {
+        _uiState.update {
+            it.copy(isRunning = b)
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 @Preview
 fun App(settings: Settings) {
 
-    val logger = Logger.getLogger("TestBed")
+    val viewModel:AppViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsState()
+
+    val uiModel = remember { RootStore() }
+
+    val logger = TestBedLogger(Logger.getLogger("TestBed"))
 
     val sc by remember { mutableStateOf(settings) }
     var ap by remember { mutableStateOf(AdbProps("","","","")) }
 
     val coroutineScope = rememberCoroutineScope()
     val loggerText by flowLogger.collectAsState("")
-    var isTestRunning by remember { mutableStateOf(false) }
-    var isServerRunning by remember { mutableStateOf(false)  }
 
+    var isServerRunning by remember { mutableStateOf(false)  }
+    var isTestRunning by remember {mutableStateOf(false)}
     //Behaviour
     var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
     var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
     var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
 
-    var fileHandler:FileHandler? = null
     val serverShell by remember { mutableStateOf(ShellRequestThread())  }
-    val model = remember { RootStore() }
 
     fun validateSettings():Boolean{
         logging("Validating settings. Resource:"+File(resourcePath).isDirectory+" Output:"+File(outputPath).isDirectory)
@@ -142,25 +194,12 @@ fun App(settings: Settings) {
         return File(resourcePath).isDirectory && File(outputPath).isDirectory
     }
 
-    fun updateLogger(){
-        if(fileHandler !== null) logger.removeHandler(fileHandler)
-        var newfilepath:String
-            = Paths.get(outputPath,"testbed.log").toAbsolutePath().toString();
-        logging(newfilepath);
-        fileHandler =
-            FileHandler(newfilepath, false)
 
-        fileHandler!!.formatter = SimpleFormatter()
-        //java.util.logging.SimpleFormatter.format="%4$s: %5$s [%1$tc]%n"
-        logger.addHandler(fileHandler)
-        logger.level = Level.FINE
-    }
     val isSettingOpen by flowVisibleDialog.collectAsState(false)
 
-    console = remember { LogConsole (flowLogger,coroutineScope,loggerText) }
+    console = remember { LogConsole (flowLogger,coroutineScope) }
     var adbIsValid by remember { mutableStateOf(false) }
     lateinit var adb:AdbDeviceRule
-
     suspend fun observeAdb():Boolean{
         try {
             //adb = AdbDeviceRule()
@@ -208,13 +247,11 @@ fun App(settings: Settings) {
 
         return true
     }
-
     //Launch Event
     LaunchedEffect(Unit) {
-        updateLogger()
+        logger.updateLogger(outputPath)
         logging("application launched.")
         if(!validateSettings()){
-            //isSettingOpen = false
             flowVisibleDialog.emit(true)
         }
         adb = AdbDeviceRule()
@@ -228,73 +265,48 @@ fun App(settings: Settings) {
         }
     }
 
-
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.background(Color(0xFFEEEEEE))) {
                 Column(modifier = Modifier.fillMaxWidth(fraction = 0.3f)){
-                    LazyColumn( modifier = Modifier.fillMaxHeight(fraction = 0.9f).fillMaxWidth()) {
-                        items(testCases) {
-                            Card(enabled = !isTestRunning,
-                                backgroundColor = if(isTestRunning) Color.LightGray else Color.White,
-                                modifier = Modifier.padding(1.dp).height(120.dp).fillParentMaxWidth()
-                                    .padding(4.dp),
-                                onClick = {
-
-                                    if(!adbIsValid){
-                                        logging("*** Need to connect a device to run the test cases.")
-                                        return@Card;
-                                    }
-
-                                    isTestRunning = true;
-                                    console.clear()
-                                    logging("[[${it.title}]]")
-
-                                    var sfr = it.clazz.getAnnotation(SFR::class.java)
-                                    if(sfr == null){
-                                        sfr = SFR("title","description","shortname")
-                                    }
-
-                                    val testProps = Properties()
-                                    testProps.setProperty("SFR.name",sfr.title)
-                                    testProps.setProperty("SFR.description",sfr.description)
-                                    if(!ap.osVersion.equals("")){
-                                      testProps.setProperty("device", ap.model)
-                                      testProps.setProperty("osversion", ap.osVersion)
-                                      testProps.setProperty("system", ap.displayId)
-                                      testProps.setProperty("signature", ap.serial)
-                                    }
-                                    //
-                                    //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
-                                    antRunner =  AntXmlRunListener(::logging, testProps) {
-                                        isTestRunning = false;
-                                    }
-                                    val now = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
-                                    antRunner!!.setOutputStream(
-                                        FileOutputStream(
-                                        Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
-                                    )
-
-                                    val runner = JUnitTestRunner(arrayOf(it.clazz),antRunner)
-                                    runner.start()
-                                },
-                            ) {
-                                Column {
-                                    Text(
-                                        text = it.title,fontFamily = FontFamily.Monospace,
-                                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(5.dp).fillMaxWidth()
-                                    )
-                                    Text(
-                                        text = it.description, overflow = TextOverflow.Ellipsis,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 10.sp, maxLines = 6,
-                                        modifier = Modifier.padding(5.dp).fillMaxWidth()
-                                    )
-                                }
-                            }
+                    SidePanel(uiState){ it->
+                        if(!adbIsValid){
+                            logging("*** Need to connect a device to run the test cases.")
+                            return@SidePanel;
                         }
+                        viewModel.toggleIsRunning(true)
+                        console.clear()
+
+                        logging("[[${it.title}]]")
+
+                        var sfr = it.clazz.getAnnotation(SFR::class.java)
+                        if(sfr == null){
+                            sfr = SFR("title","description","shortname")
+                        }
+                        val testProps = Properties()
+                        testProps.setProperty("SFR.name",sfr.title)
+                        testProps.setProperty("SFR.description",sfr.description)
+                        if(!ap.osVersion.equals("")){
+                            testProps.setProperty("device", ap.model)
+                            testProps.setProperty("osversion", ap.osVersion)
+                            testProps.setProperty("system", ap.displayId)
+                            testProps.setProperty("signature", ap.serial)
+                        }
+                        //
+                        //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
+                        antRunner =  AntXmlRunListener(::logging, testProps) {
+                            viewModel.toggleIsRunning(false)
+                        }
+                        val now = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
+                        antRunner!!.setOutputStream(
+                            FileOutputStream(
+                                Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
+                        )
+
+                        val runner = JUnitTestRunner(arrayOf(it.clazz),antRunner)
+                        runner.start()
                     }
+                    //
                     Column(modifier = Modifier.fillMaxSize().background(color = Color.Transparent).padding(10.dp)) {
                         Row(modifier = Modifier.padding(4.dp)){
                         Button(modifier = Modifier.requiredSize(50.dp)
@@ -335,11 +347,11 @@ fun App(settings: Settings) {
                         )
                         Spacer(Modifier.size(6.dp))
                         Button(modifier = Modifier.requiredHeight(50.dp), enabled = isServerRunning, colors =
-                        if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
-                        else ButtonDefaults.buttonColors(backgroundColor = Color.White)
+                            if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
+                                else ButtonDefaults.buttonColors(backgroundColor = Color.White)
                             , onClick = {
-                                model.updateUiData()
-                                logging(model.state.dumpText)
+                                uiModel.updateUiData()
+                                logging(uiModel.state.dumpText)
                             },content = {
                                 Text(text = "UI Test",
                                     fontSize =10.sp)
@@ -451,11 +463,6 @@ fun App(settings: Settings) {
 }
 
 
-
-
-
-
-
 fun main() = application {
 
     val state = rememberWindowState(
@@ -465,7 +472,6 @@ fun main() = application {
 
     val preferences = Preferences.userRoot()
     val settings = PreferencesSettings(preferences)
-
 
     Window(title=windowTitle,onCloseRequest = ::exitApplication, undecorated = false, state = state) {
         App(settings)

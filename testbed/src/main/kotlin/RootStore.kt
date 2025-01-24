@@ -1,5 +1,6 @@
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -14,7 +15,7 @@ import com.github.uiautomutton.BoundRect
 import com.github.uiautomutton.UiAccessibilityNode
 import com.github.uiautomutton.boundRect
 import com.github.uiautomutton.position
-import grpc.UiAutomuttonClient
+import niapcert.grpc.UiAutomuttonClient
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import kotlinx.coroutines.runBlocking
@@ -23,6 +24,8 @@ internal class RootStore {
 
     var state: RootState by mutableStateOf(initialState())
         private set
+
+
 
     private fun initialState(): RootState {
         val port = 9008
@@ -100,7 +103,7 @@ internal class RootStore {
     data class RootState(
         val port: Int = 9008,
         val channel: ManagedChannel,
-        val client:UiAutomuttonClient,
+        val client: UiAutomuttonClient,
         var uiRootNode: UiAccessibilityNode?,
         var mDisplaySize: BoundRect,
         var dumpText:String

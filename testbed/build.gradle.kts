@@ -8,15 +8,31 @@ plugins {
     id("com.google.protobuf") version "0.9.3"
     id("java")
 }
+
+kotlin {
+    // ...
+    sourceSets {
+        // ...
+        dependencies {
+            // ...
+
+        }
+        // ...
+    }
+}
+
 dependencies {
     implementation(compose.desktop.currentOs)
     protobuf(project(":proto"))
+
+    implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
     implementation("junit:junit:4.13.2")
     implementation("com.malinskiy.adam:adam:0.5.1")
 
     implementation("com.jcraft:jsch:0.1.55")
     implementation("io.netty:netty-all:4.1.68.Final")
+    implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
     implementation ("org.apache.commons:commons-compress:1.20")
     implementation ("com.flipkart.zjsonpatch:zjsonpatch:0.4.14")
@@ -71,7 +87,7 @@ tasks.withType<ProcessResources> {
 }
 
 tasks.named("classes"){
-   finalizedBy("copyResources")
+   //finalizedBy("copyResources")
 }
 
 //./gradlew package
@@ -87,6 +103,9 @@ compose.desktop {
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             outputBaseDir.set(project.buildDir.resolve("output"))
         }
+    }
+    dependencies {
+
     }
 }
 protobuf {

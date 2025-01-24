@@ -1,4 +1,4 @@
-package com.android.certifications.ui
+package niapcert.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight

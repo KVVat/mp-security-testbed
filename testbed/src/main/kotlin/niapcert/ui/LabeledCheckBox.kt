@@ -1,4 +1,4 @@
-package com.android.certifications.ui
+package niapcert.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
