@@ -67,13 +67,16 @@ import com.malinskiy.adam.request.device.ListDevicesRequest
 import com.malinskiy.adam.request.shell.v1.ShellCommandRequest
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
+import com.russhwolf.settings.get
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import niapcert.ui.SettingDialog
 import niapcert.ui.SidePanel
 import java.io.File
 import java.io.FileOutputStream
@@ -87,17 +90,11 @@ import java.util.logging.Logger
 import java.util.logging.SimpleFormatter
 import java.util.prefs.Preferences
 
-//import androidx.lifecycle.ViewModel
-//import androidx.lifecycle.viewmodel.compose.viewModel
-
-
-
-data class AdbProps(val osVersion:String, val model:String,val serial:String, val displayId:String)
+data class AdbProps(val osVersion:String="", val model:String="",val serial:String="", val displayId:String="")
 
 //val logger = Logger.getLogger("TestBed");
 lateinit var console: LogConsole;
 
-val flowLogger = MutableStateFlow("")
 var antRunner:AntXmlRunListener? = null
 
 fun logging(line: String){
@@ -106,7 +103,8 @@ fun logging(line: String){
 }
 
 // manage setting dialogue visibility from outside composable
-val flowVisibleDialog = MutableStateFlow(false)
+val flowLogger = MutableStateFlow("")
+//val flowVisibleDialog = MutableStateFlow(false)
 
 class TestBedLogger(logger_:Logger){
     var fileHandler:FileHandler? = null
@@ -126,17 +124,7 @@ class TestBedLogger(logger_:Logger){
     }
 }
 
-/*val testCases = listOf(
-    ADSRPTest("FDP_ACF_EXT"),
-    ADSRPTest("FPR_PSE1"),
-    ADSRPTest("FDP_ACC1"),
-    ADSRPTest("KernelAcvpTest"),
-    ADSRPTest("FCS_CKH_EXT1"),
-    ADSRPTest("FTP_ITC_EXT1"),
-    ADSRPTest("MuttonTest"),
-)*/
-
-data class SidePanelUiState(
+data class PanelUiState(
     val testCases: List<ADSRPTest> = listOf(
         ADSRPTest("FDP_ACF_EXT"),
         ADSRPTest("FPR_PSE1"),
@@ -146,58 +134,69 @@ data class SidePanelUiState(
         ADSRPTest("FTP_ITC_EXT1"),
         ADSRPTest("MuttonTest"),
     ),
-    var isRunning: Boolean = false
+    var isRunning: Boolean = false,
+    var visibleDialog:Boolean = false  ,
+    val logger: TestBedLogger = TestBedLogger(Logger.getLogger("TestBed")),
+    var consoleText: String ="",
+
 )
 
-class AppViewModel: ViewModel(){
-    val _uiState = MutableStateFlow(SidePanelUiState())
+class AppViewModel(): ViewModel(){
+    val _uiState = MutableStateFlow(PanelUiState())
     val uiState = _uiState.asStateFlow()
 
+    val preferences = Preferences.userRoot()
+    val settings = PreferencesSettings(preferences)
+    //var _settings = MutableStateFlow(settings)
+    //var settings = _settings.asStateFlow()
+
+    fun toggleVisibleDialog(b:Boolean) = viewModelScope.launch {
+        _uiState.update {
+            it.copy(visibleDialog = b)
+        }
+    }
     fun toggleIsRunning(b:Boolean) = viewModelScope.launch {
         _uiState.update {
             it.copy(isRunning = b)
         }
     }
+    fun validateSettings():Boolean{
+        val resPath  = settings.getString("PATH_RESOURCE","")
+        val outPath  = settings.getString("PATH_OUTPUT","")
+        logging("Validating settings. Resource:"+File(resPath).isDirectory+" Output:"+File(outPath).isDirectory)
+        return File(resPath).isDirectory && File(outPath).isDirectory
+    }
 }
 
-
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 @Preview
-fun App(settings: Settings) {
+fun App() {
 
     val viewModel:AppViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
-
+    val consoleText by flowLogger.collectAsState("")
     val uiModel = remember { RootStore() }
+    //settings:Settings
+    //val logger = TestBedLogger(Logger.getLogger("TestBed"))
 
-    val logger = TestBedLogger(Logger.getLogger("TestBed"))
-
-    val sc by remember { mutableStateOf(settings) }
-    var ap by remember { mutableStateOf(AdbProps("","","","")) }
+    //val sc by remember { mutableStateOf(settings) }
+    var adbProps by remember { mutableStateOf(AdbProps()) }
 
     val coroutineScope = rememberCoroutineScope()
-    val loggerText by flowLogger.collectAsState("")
 
     var isServerRunning by remember { mutableStateOf(false)  }
     var isTestRunning by remember {mutableStateOf(false)}
     //Behaviour
-    var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
-    var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
-    var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
+    //var resourcePath by remember { mutableStateOf(sc.getString("PATH_RESOURCE",""))  }
+    //var outputPath by remember { mutableStateOf(sc.getString("PATH_OUTPUT","")) }
+    //var useEmbedResource by remember { mutableStateOf(sc.getBoolean("USE_EMBED_RES",true)) }
 
     val serverShell by remember { mutableStateOf(ShellRequestThread())  }
 
-    fun validateSettings():Boolean{
-        logging("Validating settings. Resource:"+File(resourcePath).isDirectory+" Output:"+File(outputPath).isDirectory)
-
-        return File(resourcePath).isDirectory && File(outputPath).isDirectory
-    }
-
-
-    val isSettingOpen by flowVisibleDialog.collectAsState(false)
+    //val isSettingOpen by flowVisibleDialog.collectAsState(false)
 
     console = remember { LogConsole (flowLogger,coroutineScope) }
+
     var adbIsValid by remember { mutableStateOf(false) }
     lateinit var adb:AdbDeviceRule
     suspend fun observeAdb():Boolean{
@@ -215,7 +214,7 @@ fun App(settings: Settings) {
                     if (initialised) {
                         if (!adbIsValid) {
                             logging("Device Connected > ${adb.deviceSerial}/${adb.displayId}")
-                            ap =
+                            adbProps =
                                 AdbProps(
                                     adb.osversion,
                                     adb.productmodel,
@@ -240,22 +239,43 @@ fun App(settings: Settings) {
         } catch (exception:Exception){
             if(adbIsValid) {
                 logging("Device Disconnected > (" + exception.localizedMessage+") #${exception.javaClass.name}")
-                ap = AdbProps("", "", "", "")
+                adbProps = AdbProps()
                 adbIsValid = false
             }
         }
 
         return true
     }
+
+    fun genTestProps(it:ADSRPTest):Properties {
+        val testProps = Properties()
+        var sfr = it.clazz.getAnnotation(SFR::class.java)
+        if(sfr == null) sfr = SFR()
+
+        testProps.setProperty("SFR.name",sfr.title)
+        testProps.setProperty("SFR.shortname",sfr.shortname)
+        testProps.setProperty("SFR.description",sfr.description)
+        if(!adbProps.osVersion.equals("")){
+            testProps.setProperty("device", adbProps.model)
+            testProps.setProperty("osversion", adbProps.osVersion)
+            testProps.setProperty("system", adbProps.displayId)
+            testProps.setProperty("signature", adbProps.serial)
+        }
+        return testProps
+    }
+
     //Launch Event
     LaunchedEffect(Unit) {
-        logger.updateLogger(outputPath)
+        val settings = viewModel.settings
+        val outPath  = settings.getString("PATH_OUTPUT","")
+        //logger.updateLogger(outputPath)
+        uiState.logger.updateLogger(outPath)
         logging("application launched.")
-        if(!validateSettings()){
-            flowVisibleDialog.emit(true)
+        if(!viewModel.validateSettings()){
+            //flowVisibleDialog.emit(true)
+            viewModel.toggleVisibleDialog(true)
         }
         adb = AdbDeviceRule()
-        //text = String(resource("welcome.txt").readBytes())
         launch {
             withContext(Dispatchers.IO) {
                 while(true){
@@ -274,33 +294,19 @@ fun App(settings: Settings) {
                             logging("*** Need to connect a device to run the test cases.")
                             return@SidePanel;
                         }
+
                         viewModel.toggleIsRunning(true)
                         console.clear()
 
-                        logging("[[${it.title}]]")
+                        val timestamp = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
+                        val props = genTestProps(it)
 
-                        var sfr = it.clazz.getAnnotation(SFR::class.java)
-                        if(sfr == null){
-                            sfr = SFR("title","description","shortname")
-                        }
-                        val testProps = Properties()
-                        testProps.setProperty("SFR.name",sfr.title)
-                        testProps.setProperty("SFR.description",sfr.description)
-                        if(!ap.osVersion.equals("")){
-                            testProps.setProperty("device", ap.model)
-                            testProps.setProperty("osversion", ap.osVersion)
-                            testProps.setProperty("system", ap.displayId)
-                            testProps.setProperty("signature", ap.serial)
-                        }
-                        //
-                        //adb.osversion,adb.productmodel,adb.deviceSerial,adb.displayId
-                        antRunner =  AntXmlRunListener(::logging, testProps) {
+                        antRunner =  AntXmlRunListener(::logging, props) {
                             viewModel.toggleIsRunning(false)
                         }
-                        val now = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
                         antRunner!!.setOutputStream(
                             FileOutputStream(
-                                Paths.get(output_path(),"junit-report-${sfr.shortname}-$now.xml").toFile())
+                                Paths.get(output_path(),"junit-report-${props.getProperty("SFR.shortname")}-$timestamp.xml").toFile())
                         )
 
                         val runner = JUnitTestRunner(arrayOf(it.clazz),antRunner)
@@ -312,9 +318,8 @@ fun App(settings: Settings) {
                         Button(modifier = Modifier.requiredSize(50.dp)
                             , onClick = {
                                 //isSettingOpen.em = true
-                                coroutineScope.launch {
-                                    flowVisibleDialog.emit(true);
-                                }
+                                viewModel.toggleVisibleDialog(true)
+
                             }, content = {
                                 Text("⚙", fontSize =18.sp)
                             }
@@ -362,7 +367,7 @@ fun App(settings: Settings) {
                 }
                 //
                 SelectionContainer {
-                    LogText(loggerText)
+                    LogText(consoleText)
                     Text(if(adbIsValid) "🟢" else "🛑", modifier = Modifier.background(Color.Transparent)
                         , color = Color.Black
                     )
@@ -370,95 +375,9 @@ fun App(settings: Settings) {
             }
         }
     }
-
-    if(isSettingOpen) {
-        // Path Setting Dialogue Implementation
-
-        var dlgmessage by remember { mutableStateOf("") }
-        fun onSettingDialogClose() {
-            logging("Folder Setting is dismissed")
-            dlgmessage=""
-            if(validateSettings()) {
-                //settingConfig.["PATH_OUTPUT"]=outputPath
-                coroutineScope.launch {
-                    flowVisibleDialog.emit(false)
-                    //persist values to property file
-                    settings.putString("PATH_RESOURCE",resourcePath)
-                    settings.putString("PATH_OUTPUT",outputPath)
-                    settings.putBoolean("USE_EMBED_RES",useEmbedResource)
-                }
-            } else {
-                dlgmessage = "⚠️Need to set existent path."
-            }
-        }
-
-        Dialog(
-            onDismissRequest = {
-                onSettingDialogClose()
-            },
-        ){
-            var showDirPicker by remember { mutableStateOf(false) }
-            var targetDir by remember { mutableStateOf(0) }
-
-            DirectoryPicker(showDirPicker) { path ->
-                showDirPicker = false
-                // do something with path
-                if(targetDir==0){
-                    resourcePath=path!!
-                } else if(targetDir==1){
-                    outputPath=path!!
-                }
-            }
-
-            StandardOneButtonDialog("Folder Settings","OK",
-                onCloseRequest = {
-                    onSettingDialogClose()
-                }){
-                Column {
-                    Text("Resource Folder", modifier = Modifier.fillMaxWidth())
-                    //
-                    Row(verticalAlignment = Alignment.CenterVertically){
-                        TextField(value=resourcePath, onValueChange = { resourcePath=it },
-                            enabled=!useEmbedResource, modifier = Modifier.fillMaxWidth(0.85f))
-                        Spacer(Modifier.size(6.dp))
-                        Button(modifier = Modifier.requiredSize(60.dp)
-                            , onClick = {
-                                targetDir=0
-                                showDirPicker=true
-                            }, content = {
-                                Text("\uD83D\uDCC1", fontSize =18.sp)
-                            }, enabled = !useEmbedResource
-                        )
-                    }
-                    //
-                    LabeledCheckBox(checked = useEmbedResource, onCheckedChange = {
-                        useEmbedResource=it
-                        if(it){
-                            resourcePath = System.getProperty("compose.application.resources.dir")
-                        }
-                    },label="Use Embedded Resources" )
-                    //
-                    Text("Output Folder", modifier = Modifier.fillMaxWidth())
-                    Row(verticalAlignment = Alignment.CenterVertically){
-                        TextField(value=outputPath, onValueChange = { outputPath=it },
-                            enabled=true, modifier = Modifier.fillMaxWidth(0.85f))
-                        Spacer(Modifier.size(6.dp))
-                        Button(modifier = Modifier.requiredSize(60.dp)
-                            , onClick = {
-                                targetDir=1
-                                showDirPicker=true
-                            }, content = {
-                                Text("\uD83D\uDCC1", fontSize =18.sp)
-                            }
-                        )
-                    }
-                    Text(dlgmessage, modifier = Modifier.fillMaxWidth())
-                }
-            }
-            if(useEmbedResource == true){
-                resourcePath = System.getProperty("compose.application.resources.dir")
-            }
-        }
+    /* Settings Dialogue */
+    if(uiState.visibleDialog) {
+        SettingDialog(viewModel)
     }
 }
 
@@ -470,19 +389,13 @@ fun main() = application {
     )
     val windowTitle by remember { mutableStateOf("ADSRP Test Application") }
 
-    val preferences = Preferences.userRoot()
-    val settings = PreferencesSettings(preferences)
-
     Window(title=windowTitle,onCloseRequest = ::exitApplication, undecorated = false, state = state) {
-        App(settings)
+        App()
         MenuBar {
             Menu("File", mnemonic = 'F') {
                 Item(
                     "Settings",
-                    onClick = { runBlocking {
-                        //Verify the ADB server is running
-                    } }
-
+                    onClick = { runBlocking {} }
                 )
                 Item(
                     "Adb Doctor",

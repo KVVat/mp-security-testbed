@@ -1,7 +1,7 @@
 package niapcert.ui
 
 import AdbProps
-import SidePanelUiState
+import PanelUiState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,7 +36,7 @@ import java.util.Properties
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun SidePanel(uiState:SidePanelUiState, onCardItemClick:(target: ADSRPTest)->Unit){
+fun SidePanel(uiState:PanelUiState, onCardItemClick:(target: ADSRPTest)->Unit){
 
     LazyColumn( modifier = Modifier.fillMaxHeight(fraction = 0.9f).fillMaxWidth()) {
         items(uiState.testCases) { it ->

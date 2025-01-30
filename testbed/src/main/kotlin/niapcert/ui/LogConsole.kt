@@ -13,7 +13,7 @@ class LogConsole(val myLogger: MutableStateFlow<String>,
     fun clear(){
         coroutineScope.launch {
             textStack.clear();
-            myLogger.emit("");
+            myLogger.emit("")
         }
     }
     fun write(line:String){

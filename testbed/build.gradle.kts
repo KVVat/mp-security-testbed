@@ -26,13 +26,15 @@ dependencies {
     protobuf(project(":proto"))
 
     implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
-
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${rootProject.ext["coroutinesVersion"]}")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${rootProject.ext["coroutinesVersion"]}")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${rootProject.ext["coroutinesVersion"]}")
+    //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:${rootProject.ext["coroutinesVersion"]}")
     implementation("junit:junit:4.13.2")
     implementation("com.malinskiy.adam:adam:0.5.1")
 
     implementation("com.jcraft:jsch:0.1.55")
     implementation("io.netty:netty-all:4.1.68.Final")
-    implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
     implementation ("org.apache.commons:commons-compress:1.20")
     implementation ("com.flipkart.zjsonpatch:zjsonpatch:0.4.14")
@@ -91,6 +93,11 @@ tasks.named("classes"){
 }
 
 //./gradlew package
+compose.android {
+    dependencies {
+
+    }
+}
 compose.desktop {
     application {
         mainClass = "MainKt"
@@ -105,6 +112,7 @@ compose.desktop {
         }
     }
     dependencies {
+
 
     }
 }
