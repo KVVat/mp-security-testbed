@@ -1,7 +1,5 @@
 package niapcert.ui
 
-import AdbProps
-import PanelUiState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +26,7 @@ import com.android.certifications.junit.xmlreport.AntXmlRunListener
 import com.android.certifications.test.utils.ADSRPTest
 import com.android.certifications.test.utils.SFR
 import com.android.certifications.test.utils.output_path
+import niapcert.viewmodel.PanelUiState
 import java.io.FileOutputStream
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
@@ -36,7 +35,7 @@ import java.util.Properties
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun SidePanel(uiState:PanelUiState, onCardItemClick:(target: ADSRPTest)->Unit){
+fun SidePanel(uiState: PanelUiState, onCardItemClick:(target: ADSRPTest)->Unit){
 
     LazyColumn( modifier = Modifier.fillMaxHeight(fraction = 0.9f).fillMaxWidth()) {
         items(uiState.testCases) { it ->

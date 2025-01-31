@@ -1,6 +1,5 @@
 package niapcert.ui
 
-import AppViewModel
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.darkrockstudios.libraries.mpfilepicker.DirectoryPicker
 import logging
+import niapcert.viewmodel.AppViewModel
 
 @Composable
 fun SettingDialog(viewModel: AppViewModel) {
