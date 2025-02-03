@@ -1,5 +1,7 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +53,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import niapcert.adb.AdbObserver
+import niapcert.ui.CommandPanel
 import niapcert.ui.LogConsole
 import niapcert.ui.LogText
 import niapcert.ui.SettingDialog
@@ -67,7 +70,6 @@ import java.util.logging.Logger
 import java.util.logging.SimpleFormatter
 
 lateinit var console: LogConsole;
-
 var antRunner:AntXmlRunListener? = null
 
 class TestBedLogger(logger_:Logger){
@@ -100,6 +102,7 @@ fun App() {
     val viewModel:AppViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     val consoleText by viewModel.consoleText.collectAsState()
+    val rootStoreModel = remember { RootStore() }
 
     var adbObserver by remember { mutableStateOf(AdbObserver(viewModel))  }
 
@@ -108,9 +111,6 @@ fun App() {
     var isServerRunning by remember { mutableStateOf(false)  }
     //val isTestRunning by remember { mutableStateOf(false) }
     //For realtime ui dumper
-    val uiModel = remember { RootStore() }
-    lateinit var adb:AdbDeviceRule
-    val serverShell by remember { mutableStateOf(ShellRequestThread())  }
 
     console = remember { LogConsole (viewModel._consoleText,coroutineScope) }
 
@@ -152,13 +152,19 @@ fun App() {
             }
         }
     }
-
+    fun MainPanelSizes():Array<Float>{
+        if(uiState.isUiServerRunning){
+            return arrayOf(0.5f,0.5f)
+        } else {
+            return arrayOf(1.0f,0.0f)
+        }
+    }
     MaterialTheme {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.background(Color(0xFFEEEEEE))) {
                 Column(modifier = Modifier.fillMaxWidth(fraction = 0.3f)){
                     SidePanel(uiState){ it->
-                        if(!viewModel.uiState.value.adbIsValid){
+                        if(!uiState.adbIsValid){
                             logging("*** Need to connect a device to run the test cases.")
                             return@SidePanel;
                         }
@@ -182,66 +188,38 @@ fun App() {
                     }
                     //
                     Column(modifier = Modifier.fillMaxSize().background(color = Color.Transparent).padding(10.dp)) {
-                        //CommandPanel()
-                        Row(modifier = Modifier.padding(4.dp)){
-                            Button(modifier = Modifier.requiredSize(50.dp)
-                                , onClick = {
-                                    //isSettingOpen.em = true
-                                    viewModel.toggleVisibleDialog(true)
-
-                                }, content = {
-                                    Text("⚙", fontSize =18.sp)
-                                }
-                            )
-                            Spacer(Modifier.size(6.dp))
-
-                            Button(modifier = Modifier.requiredHeight(50.dp), enabled = viewModel.uiState.value.adbIsValid, colors =
-                                if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
-                                    else ButtonDefaults.buttonColors(backgroundColor = Color.White)
-                                , onClick = {
-                                    coroutineScope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            //automata start processes
-                                            adb = AdbDeviceRule()
-                                            adb.startAlone()
-                                            if(serverShell.isInitialized()){
-                                                if(serverShell.isRunning){
-                                                    serverShell.interrupt()
-                                                    isServerRunning=false;
-                                                    return@withContext
-                                                }
-                                            }
-                                            isServerRunning=true
-                                            UIServerManager.runAutomataServer(serverShell,adb)
-                                        }
-                                    }
-                                }, content = {
-                                    Text(text = if(isServerRunning) "Stop UI Server" else "Start UI Server",
-                                        fontSize =10.sp)
-                                }
-                            )
-                            Spacer(Modifier.size(6.dp))
-                            Button(modifier = Modifier.requiredHeight(50.dp), enabled = isServerRunning, colors =
-                                if(isServerRunning) ButtonDefaults.buttonColors(backgroundColor = Color.Green)
-                                    else ButtonDefaults.buttonColors(backgroundColor = Color.White)
-                                , onClick = {
-                                    uiModel.updateUiData()
-                                    logging(uiModel.state.dumpText)
-                                },content = {
-                                    Text(text = "UI Test",
-                                        fontSize =10.sp)
-                                }
-                            )
-                        }
+                        CommandPanel(viewModel,rootStoreModel)
                     }
                 }
 
                 //
-                SelectionContainer {
-                    LogText(consoleText)
-                    Text(if(viewModel.uiState.value.adbIsValid) "🟢" else "🛑", modifier = Modifier.background(Color.Transparent)
-                        , color = Color.Black
-                    )
+                SelectionContainer(modifier = Modifier.fillMaxWidth()) {
+                    Row{
+                        Column(modifier =
+                        Modifier.fillMaxWidth(fraction = MainPanelSizes()[0])) {
+                            Box(Modifier.padding(4.dp)) {
+                                LogText(consoleText)
+                                Text(
+                                    if (uiState.adbIsValid) "🟢" else "🛑",
+                                    modifier = Modifier.background(Color.Transparent),
+                                    color = Color.Black
+                                )
+                            }
+                        }
+                        //https://stackoverflow.com/questions/68591340/jetpack-compose-periodically-update-and-draw-in-another-thread-as-surfaceview
+                        Column(modifier = Modifier.fillMaxWidth()){
+                            Box(Modifier.padding(4.dp)){
+                                Canvas(
+                                    modifier = Modifier.fillMaxSize()
+                                ){
+                                    if(uiState.isUiServerRunning) {
+                                        rootStoreModel.updateUiData()
+                                        rootStoreModel.drawUiAccessibilityNodes(this)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -265,36 +243,10 @@ fun main() = application {
         MenuBar {
             Menu("File", mnemonic = 'F') {
                 Item(
-                    "Settings",
-                    onClick = { runBlocking {} }
-                )
-                Item(
-                    "Adb Doctor",
-                    onClick = { runBlocking {
-                        //Verify the ADB server is running
-                        val found = StartAdbInteractor().execute()
-                        if (found) {
-                            //Create AndroidDebugBridgeServer instance
-                            val adb = AndroidDebugBridgeClientFactory().apply {
-                                coroutineContext = Dispatchers.IO
-                            }.build()
-                            //Execute requests using suspendable execute() methods. First list available devices
-                            val devices = adb.execute(request = ListDevicesRequest())
-                            try {
-                                val serial = devices.first().serial
-                                //Execute an actual command specifying serial number of device
-                                val output = adb.execute(
-                                    ShellCommandRequest("echo hello"),
-                                    serial = serial
-                                )
-                                println(output.output)
-                            } catch (ex: Exception) {
-                                println(ex.message)
-                            }
-                        } else {
-                            println("not found")
-                        }
-                    } }
+                    "Exit",
+                    onClick = {
+                        exitApplication()
+                    }
                 )
             }
         }

@@ -33,6 +33,13 @@ class AppViewModel(): ViewModel(){
             it.copy(isRunning = b)
         }
     }
+
+    fun toggleUiServerIsRunning(b:Boolean) = viewModelScope.launch {
+        _uiState.update {
+            it.copy(isUiServerRunning = b)
+        }
+    }
+
     fun toggleAdbIsValid(b:Boolean) = viewModelScope.launch {
         _uiState.update {
             it.copy(adbIsValid = b)

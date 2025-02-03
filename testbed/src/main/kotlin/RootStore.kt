@@ -20,7 +20,7 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import kotlinx.coroutines.runBlocking
 
-internal class RootStore {
+class RootStore {
 
     var state: RootState by mutableStateOf(initialState())
         private set
@@ -39,7 +39,7 @@ internal class RootStore {
     private var dpHeight:Float=0.0f
     private var dss = Size(0f,0f)
     @OptIn(ExperimentalTextApi::class)
-    fun drawUiAccessibilityNodes(ds: DrawScope, textMeasurer: TextMeasurer,
+    fun drawUiAccessibilityNodes(ds: DrawScope,
                                  node: UiAccessibilityNode?=state.uiRootNode){
         with(ds){
             if(node == null) {
@@ -53,14 +53,14 @@ internal class RootStore {
             val b = (bn.bottom.toFloat()/dpHeight)*dss.height
             val r = (bn.right.toFloat()/dpWidth)*dss.width
             //println(">"+dpWidth+","+dpHeight)
-            drawRect(color = Color.LightGray,
+            drawRect(color = Color.Blue,
                 topLeft = Offset(l,t), size = Size(r-l,b-t),
                 style = Stroke(width = 1.dp.toPx())
             )
-            drawText(textMeasurer,text=node.text, topLeft = Offset(l,t),size = Size(r-l,b-t))
+            //drawText(textMeasurer,text=node.text, topLeft = Offset(l,t),size = Size(r-l,b-t))
             if(node.nodeListList.size>0){
                 for(n in node.nodeListList){
-                    drawUiAccessibilityNodes(ds, textMeasurer,n)
+                    drawUiAccessibilityNodes(ds, n)
                 }
             }
         }

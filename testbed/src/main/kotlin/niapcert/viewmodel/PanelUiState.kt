@@ -17,6 +17,7 @@ data class PanelUiState(
     var isRunning: Boolean = false,
     var visibleDialog:Boolean = false,
     var adbIsValid:Boolean = false,
+    var isUiServerRunning:Boolean = false,
     val logger: TestBedLogger = TestBedLogger(Logger.getLogger("TestBed")),
     var consoleText: String ="",
 
